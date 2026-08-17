@@ -1,0 +1,1640 @@
+/* ==========================================================================
+   MEMORYOS — PREMIUM RESPONSIVE SYSTEM
+   File: frontend/css/responsive.css
+
+   Purpose:
+   - Global responsive behavior
+   - Mobile-first corrections
+   - Tablet adaptation
+   - Desktop optimization
+   - Ultra-wide layouts
+   - Navigation collapse
+   - Search adaptation
+   - Upload adaptation
+   - Dashboard adaptation
+   - Drawer adaptation
+   - Panel adaptation
+   - Touch safety
+   - Landscape mobile
+   - Reduced visual density on small screens
+
+   NOTE:
+   This file is intentionally loaded near the end of the CSS stack.
+   Component-specific styles remain in their own files.
+   ========================================================================== */
+
+
+/* ==========================================================================
+   01. RESPONSIVE ROOT
+   ========================================================================== */
+
+:root {
+    --responsive-page-padding: clamp(16px, 3vw, 48px);
+    --responsive-section-gap: clamp(40px, 6vw, 96px);
+    --responsive-card-gap: clamp(12px, 1.5vw, 24px);
+    --responsive-content-width: 1440px;
+    --responsive-readable-width: 760px;
+}
+
+
+/* ==========================================================================
+   02. GLOBAL WIDTH SAFETY
+   ========================================================================== */
+
+html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 320px;
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+    max-width: 100%;
+}
+
+
+/* ==========================================================================
+   03. RESPONSIVE CONTAINER
+   ========================================================================== */
+
+.container,
+.page-container,
+.main-container {
+    width: min(
+        calc(100% - (var(--responsive-page-padding) * 2)),
+        var(--responsive-content-width)
+    );
+
+    margin-inline: auto;
+}
+
+
+/* ==========================================================================
+   04. GENERIC RESPONSIVE GRID
+   ========================================================================== */
+
+.responsive-grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(min(100%, 240px), 1fr)
+    );
+
+    gap: var(--responsive-card-gap);
+}
+
+
+/* ==========================================================================
+   05. DESKTOP NAVIGATION DEFAULT
+   ========================================================================== */
+
+.mobile-only {
+    display: none !important;
+}
+
+.desktop-only {
+    display: initial;
+}
+
+
+/* ==========================================================================
+   06. LARGE DESKTOP
+   ========================================================================== */
+
+@media (min-width: 1441px) {
+    :root {
+        --responsive-page-padding: clamp(32px, 4vw, 72px);
+    }
+
+    .container,
+    .page-container,
+    .main-container {
+        width: min(
+            calc(100% - (var(--responsive-page-padding) * 2)),
+            1560px
+        );
+    }
+
+    .hero-section,
+    .hero {
+        min-height: 720px;
+    }
+
+    .memory-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .analytics-grid {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+
+    .analytics-grid > * {
+        min-width: 0;
+    }
+}
+
+
+/* ==========================================================================
+   07. ULTRA-WIDE DESKTOP
+   ========================================================================== */
+
+@media (min-width: 1920px) {
+    :root {
+        --responsive-page-padding: 64px;
+    }
+
+    .container,
+    .page-container,
+    .main-container {
+        max-width: 1680px;
+    }
+
+    .memory-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .hero-content {
+        max-width: 1180px;
+        margin-inline: auto;
+    }
+
+    .dashboard-content,
+    .analytics-content {
+        max-width: 1680px;
+        margin-inline: auto;
+    }
+}
+
+
+/* ==========================================================================
+   08. DESKTOP
+   ========================================================================== */
+
+@media (min-width: 1201px) {
+    .nav-toggle,
+    .mobile-menu-toggle,
+    [data-mobile-menu-toggle] {
+        display: none !important;
+    }
+
+    .desktop-navigation {
+        display: flex;
+    }
+
+    .hero-search {
+        width: min(820px, 90vw);
+        margin-inline: auto;
+    }
+
+    .upload-workspace {
+        min-height: 420px;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+
+/* ==========================================================================
+   09. LAPTOP
+   ========================================================================== */
+
+@media (max-width: 1200px) {
+    :root {
+        --responsive-page-padding: clamp(20px, 3vw, 36px);
+    }
+
+    .memory-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .hero-content {
+        max-width: 900px;
+    }
+
+    .hero-title {
+        font-size: clamp(48px, 6vw, 76px);
+    }
+
+    .hero-description {
+        max-width: 680px;
+    }
+
+    .navigation-links {
+        gap: 16px;
+    }
+
+    .header-actions {
+        gap: 8px;
+    }
+}
+
+
+/* ==========================================================================
+   10. TABLET / SMALL LAPTOP
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+    :root {
+        --responsive-page-padding: 24px;
+        --responsive-section-gap: 64px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Navigation
+       ---------------------------------------------------------------------- */
+
+    .desktop-navigation {
+        display: none;
+    }
+
+    .nav-toggle,
+    .mobile-menu-toggle,
+    [data-mobile-menu-toggle] {
+        display: inline-flex;
+    }
+
+    .header-inner,
+    .navbar-inner,
+    .topbar-inner {
+        gap: 12px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Hero
+       ---------------------------------------------------------------------- */
+
+    .hero-section,
+    .hero {
+        min-height: auto;
+        padding-block: 88px 72px;
+    }
+
+    .hero-title {
+        font-size: clamp(44px, 7vw, 64px);
+        line-height: 1.04;
+    }
+
+    .hero-description {
+        font-size: 16px;
+        max-width: 620px;
+    }
+
+    .hero-actions {
+        flex-wrap: wrap;
+    }
+
+    /* ----------------------------------------------------------------------
+       Search
+       ---------------------------------------------------------------------- */
+
+    .search-container,
+    .hero-search,
+    .search-shell {
+        width: 100%;
+        max-width: 760px;
+    }
+
+    .search-suggestions {
+        flex-wrap: wrap;
+    }
+
+    /* ----------------------------------------------------------------------
+       Dashboard
+       ---------------------------------------------------------------------- */
+
+    .dashboard-grid,
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-panel--wide,
+    .analytics-panel--full,
+    .dashboard-panel--wide {
+        grid-column: 1 / -1;
+    }
+
+    /* ----------------------------------------------------------------------
+       Memory cards
+       ---------------------------------------------------------------------- */
+
+    .memory-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* ----------------------------------------------------------------------
+       Upload
+       ---------------------------------------------------------------------- */
+
+    .upload-layout,
+    .upload-workspace-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .upload-dropzone {
+        min-height: 340px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Pipeline
+       ---------------------------------------------------------------------- */
+
+    .pipeline-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* ==========================================================================
+   11. MOBILE LARGE
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    :root {
+        --responsive-page-padding: 18px;
+        --responsive-section-gap: 52px;
+        --responsive-card-gap: 14px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Global
+       ---------------------------------------------------------------------- */
+
+    body {
+        font-size: 15px;
+    }
+
+    .container,
+    .page-container,
+    .main-container {
+        width: calc(100% - (var(--responsive-page-padding) * 2));
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+
+    .mobile-only {
+        display: initial !important;
+    }
+
+    /* ----------------------------------------------------------------------
+       Header
+       ---------------------------------------------------------------------- */
+
+    .header,
+    .navbar,
+    .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .header-inner,
+    .navbar-inner,
+    .topbar-inner {
+        min-height: 64px;
+    }
+
+    .brand-text {
+        max-width: 140px;
+    }
+
+    .brand-tagline {
+        display: none;
+    }
+
+    .header-actions {
+        margin-left: auto;
+    }
+
+    .header-actions > .secondary-action,
+    .header-actions > .desktop-action {
+        display: none;
+    }
+
+    .avatar {
+        width: 34px;
+        height: 34px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Hero
+       ---------------------------------------------------------------------- */
+
+    .hero-section,
+    .hero {
+        padding-block: 64px 48px;
+    }
+
+    .hero-title {
+        font-size: clamp(38px, 11vw, 54px);
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+    }
+
+    .hero-description {
+        font-size: 15px;
+        line-height: 1.7;
+    }
+
+    .hero-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hero-actions > * {
+        width: 100%;
+    }
+
+    /* ----------------------------------------------------------------------
+       Search
+       ---------------------------------------------------------------------- */
+
+    .search-wrapper,
+    .search-container,
+    .hero-search {
+        width: 100%;
+    }
+
+    .search-input {
+        min-height: 54px;
+        font-size: 15px;
+    }
+
+    .search-actions {
+        gap: 6px;
+    }
+
+    .search-button {
+        min-width: 46px;
+        min-height: 46px;
+    }
+
+    .search-suggestions {
+        gap: 8px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+
+        scrollbar-width: none;
+    }
+
+    .search-suggestions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .search-suggestion {
+        flex: 0 0 auto;
+    }
+
+    /* ----------------------------------------------------------------------
+       Statistics
+       ---------------------------------------------------------------------- */
+
+    .stats-grid,
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        min-height: 130px;
+    }
+
+    .stat-value {
+        font-size: clamp(28px, 8vw, 40px);
+    }
+
+    /* ----------------------------------------------------------------------
+       Analytics
+       ---------------------------------------------------------------------- */
+
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-panel,
+    .analytics-panel--wide,
+    .analytics-panel--full,
+    .dashboard-panel,
+    .dashboard-panel--wide {
+        grid-column: auto;
+    }
+
+    .chart-container {
+        min-height: 220px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Memory grid
+       ---------------------------------------------------------------------- */
+
+    .memory-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .memory-card {
+        min-width: 0;
+    }
+
+    .memory-card-image {
+        aspect-ratio: 16 / 10;
+    }
+
+    /* ----------------------------------------------------------------------
+       Upload
+       ---------------------------------------------------------------------- */
+
+    .upload-dropzone {
+        min-height: 280px;
+        padding: 28px 18px;
+    }
+
+    .upload-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .upload-actions > * {
+        width: 100%;
+    }
+
+    .upload-queue {
+        max-height: 360px;
+    }
+
+    .upload-item {
+        padding: 12px;
+    }
+
+    .upload-item-meta {
+        min-width: 0;
+    }
+
+    .upload-item-name {
+        max-width: 170px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Pipeline
+       ---------------------------------------------------------------------- */
+
+    .pipeline-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pipeline-step {
+        min-height: 100px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Footer / CTA
+       ---------------------------------------------------------------------- */
+
+    .final-cta,
+    .cta-section {
+        padding: 36px 20px;
+    }
+
+    .cta-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .cta-actions > * {
+        width: 100%;
+    }
+}
+
+
+/* ==========================================================================
+   12. MOBILE STANDARD
+   ========================================================================== */
+
+@media (max-width: 600px) {
+    :root {
+        --responsive-page-padding: 16px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Typography
+       ---------------------------------------------------------------------- */
+
+    h1,
+    .h1 {
+        font-size: clamp(32px, 10vw, 44px);
+    }
+
+    h2,
+    .h2 {
+        font-size: clamp(26px, 8vw, 34px);
+    }
+
+    h3,
+    .h3 {
+        font-size: 21px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Sections
+       ---------------------------------------------------------------------- */
+
+    .section,
+    section {
+        scroll-margin-top: 76px;
+    }
+
+    .section-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .section-header-actions {
+        width: 100%;
+    }
+
+    /* ----------------------------------------------------------------------
+       Toolbar
+       ---------------------------------------------------------------------- */
+
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .toolbar-group {
+        width: 100%;
+    }
+
+    .toolbar-group > * {
+        flex: 1;
+    }
+
+    /* ----------------------------------------------------------------------
+       Cards
+       ---------------------------------------------------------------------- */
+
+    .card-footer {
+        flex-wrap: wrap;
+    }
+
+    .card-actions {
+        width: 100%;
+    }
+
+    /* ----------------------------------------------------------------------
+       Detail metadata
+       ---------------------------------------------------------------------- */
+
+    .metadata-grid,
+    .detail-metadata-grid,
+    .entity-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ----------------------------------------------------------------------
+       Filters
+       ---------------------------------------------------------------------- */
+
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-control {
+        width: 100%;
+    }
+
+    /* ----------------------------------------------------------------------
+       Toasts
+       ---------------------------------------------------------------------- */
+
+    .toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+    }
+
+    .toast {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+
+/* ==========================================================================
+   13. SMALL MOBILE
+   ========================================================================== */
+
+@media (max-width: 480px) {
+    :root {
+        --responsive-page-padding: 14px;
+        --responsive-card-gap: 12px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Header
+       ---------------------------------------------------------------------- */
+
+    .header-inner,
+    .navbar-inner,
+    .topbar-inner {
+        min-height: 58px;
+    }
+
+    .brand-logo {
+        width: 30px;
+        height: 30px;
+    }
+
+    .brand-name {
+        font-size: 16px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Hero
+       ---------------------------------------------------------------------- */
+
+    .hero-section,
+    .hero {
+        padding-block: 52px 40px;
+    }
+
+    .hero-title {
+        font-size: clamp(34px, 12vw, 46px);
+    }
+
+    .hero-description {
+        font-size: 14px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Search
+       ---------------------------------------------------------------------- */
+
+    .search-shell,
+    .search-box {
+        border-radius: 16px;
+    }
+
+    .search-input {
+        min-height: 50px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Stats
+       ---------------------------------------------------------------------- */
+
+    .stat-card {
+        padding: 18px;
+        min-height: 116px;
+    }
+
+    .stat-value {
+        font-size: 30px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Upload
+       ---------------------------------------------------------------------- */
+
+    .upload-dropzone {
+        min-height: 240px;
+        padding: 24px 14px;
+    }
+
+    .upload-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .upload-title {
+        font-size: 18px;
+    }
+
+    .upload-description {
+        font-size: 13px;
+    }
+
+    /* ----------------------------------------------------------------------
+       Memory card
+       ---------------------------------------------------------------------- */
+
+    .memory-card-content {
+        padding: 14px;
+    }
+
+    .memory-card-title {
+        font-size: 17px;
+    }
+
+    .memory-card-summary {
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    /* ----------------------------------------------------------------------
+       Detail
+       ---------------------------------------------------------------------- */
+
+    .detail-actions,
+    .drawer-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .detail-actions > *,
+    .drawer-actions > * {
+        width: 100%;
+    }
+}
+
+
+/* ==========================================================================
+   14. EXTRA SMALL DEVICES
+   ========================================================================== */
+
+@media (max-width: 360px) {
+    :root {
+        --responsive-page-padding: 12px;
+    }
+
+    .hero-title {
+        font-size: 32px;
+    }
+
+    .hero-description {
+        font-size: 13px;
+    }
+
+    .brand-name {
+        font-size: 15px;
+    }
+
+    .header-actions {
+        gap: 4px;
+    }
+
+    .icon-button {
+        width: 38px;
+        height: 38px;
+    }
+
+    .stat-card {
+        padding: 15px;
+    }
+
+    .upload-dropzone {
+        min-height: 220px;
+    }
+
+    .memory-card-content {
+        padding: 12px;
+    }
+}
+
+
+/* ==========================================================================
+   15. LANDSCAPE MOBILE
+   ========================================================================== */
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .hero-section,
+    .hero {
+        min-height: auto;
+        padding-block: 42px 36px;
+    }
+
+    .hero-title {
+        font-size: clamp(32px, 7vw, 48px);
+    }
+
+    .upload-dropzone {
+        min-height: 220px;
+    }
+
+    .mobile-menu {
+        max-height: calc(100vh - 64px);
+        overflow-y: auto;
+    }
+}
+
+
+/* ==========================================================================
+   16. TOUCH DEVICES
+   ========================================================================== */
+
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover-only visual assumptions. */
+
+    .hover-light::after,
+    .spotlight::before,
+    .image-shine::after {
+        display: none;
+    }
+
+    /* Make controls touch-friendly. */
+
+    button,
+    [role="button"],
+    .button,
+    .icon-button,
+    .chip,
+    .search-suggestion {
+        min-height: 44px;
+    }
+
+    .icon-button {
+        min-width: 44px;
+    }
+
+    /* Disable hover transforms that can feel sticky on touch. */
+
+    .memory-card:hover,
+    .card:hover,
+    .panel:hover {
+        transform: none;
+    }
+}
+
+
+/* ==========================================================================
+   17. POINTER DEVICES
+   ========================================================================== */
+
+@media (hover: hover) and (pointer: fine) {
+    .memory-card,
+    .card,
+    .panel,
+    .stat-card {
+        transition:
+            transform 220ms ease,
+            border-color 220ms ease,
+            box-shadow 220ms ease;
+    }
+}
+
+
+/* ==========================================================================
+   18. VERY LARGE TEXT / ACCESSIBILITY ZOOM
+   ========================================================================== */
+
+@media (min-resolution: 1.5dppx) {
+    .grid-effect {
+        background-size:
+            calc(var(--effect-grid-size) * 1.15)
+            calc(var(--effect-grid-size) * 1.15);
+    }
+}
+
+
+/* ==========================================================================
+   19. REDUCED MOTION
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+
+/* ==========================================================================
+   20. REDUCED TRANSPARENCY
+   ========================================================================== */
+
+@media (prefers-reduced-transparency: reduce) {
+    .glass-effect,
+    .glass-effect--strong,
+    .glass-panel {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        background: rgba(20, 20, 28, 0.96);
+    }
+}
+
+
+/* ==========================================================================
+   21. MOBILE DRAWER SUPPORT
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .drawer,
+    .memory-drawer,
+    [data-drawer] {
+        width: min(100%, 100vw);
+        max-width: 100vw;
+    }
+
+    .drawer-content,
+    .memory-drawer-content {
+        padding:
+            20px
+            var(--responsive-page-padding)
+            32px;
+    }
+
+    .drawer-header {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+    }
+
+    .drawer-image,
+    .memory-detail-image {
+        max-height: 52vh;
+        object-fit: contain;
+    }
+}
+
+
+/* ==========================================================================
+   22. DESKTOP DRAWER SUPPORT
+   ========================================================================== */
+
+@media (min-width: 768px) {
+    .drawer,
+    .memory-drawer,
+    [data-drawer] {
+        width: min(560px, 46vw);
+    }
+}
+
+
+/* ==========================================================================
+   23. COMMAND PALETTE
+   ========================================================================== */
+
+@media (max-width: 600px) {
+    .command-palette,
+    .command-menu {
+        width: calc(100vw - 24px);
+        max-width: none;
+        max-height: calc(100vh - 48px);
+    }
+
+    .command-search {
+        min-height: 52px;
+    }
+
+    .command-item {
+        min-height: 48px;
+    }
+}
+
+
+/* ==========================================================================
+   24. MODALS
+   ========================================================================== */
+
+@media (max-width: 600px) {
+    .modal,
+    .dialog,
+    [role="dialog"] {
+        width: calc(100vw - 24px);
+        max-width: none;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+    }
+
+    .modal-actions,
+    .dialog-actions {
+        flex-direction: column;
+    }
+
+    .modal-actions > *,
+    .dialog-actions > * {
+        width: 100%;
+    }
+}
+
+
+/* ==========================================================================
+   25. FILTER PANEL
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .filter-panel {
+        width: calc(100vw - 24px);
+        max-width: none;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+    }
+
+    .filter-panel-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ==========================================================================
+   26. DATA / TABLE RESPONSIVENESS
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .table-container,
+    .data-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+        min-width: 620px;
+    }
+}
+
+
+/* ==========================================================================
+   27. CODE / OCR CONTENT
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .ocr-text,
+    .semantic-text,
+    .code-block,
+    pre {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    pre {
+        font-size: 12px;
+    }
+}
+
+
+/* ==========================================================================
+   28. IMAGE RESPONSIVENESS
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .responsive-image,
+    .memory-image,
+    .preview-image {
+        width: 100%;
+        height: auto;
+        object-fit: cover;
+    }
+}
+
+
+/* ==========================================================================
+   29. FLEX OVERFLOW PROTECTION
+   ========================================================================== */
+
+.flex-safe {
+    min-width: 0;
+}
+
+.flex-safe > * {
+    min-width: 0;
+}
+
+.text-safe {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+
+/* ==========================================================================
+   30. LONG TEXT PROTECTION
+   ========================================================================== */
+
+.memory-card-title,
+.memory-card-summary,
+.entity-name,
+.metadata-value,
+.drawer-title,
+.result-title,
+.result-summary {
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+
+/* ==========================================================================
+   31. RESPONSIVE VISUAL DENSITY
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .desktop-density {
+        display: none;
+    }
+
+    .mobile-density {
+        display: block;
+    }
+}
+
+@media (min-width: 768px) {
+    .desktop-density {
+        display: block;
+    }
+
+    .mobile-density {
+        display: none;
+    }
+}
+
+
+/* ==========================================================================
+   32. RESPONSIVE SPACING HELPERS
+   ========================================================================== */
+
+.section-spacing {
+    padding-block: clamp(44px, 7vw, 104px);
+}
+
+.section-spacing-sm {
+    padding-block: clamp(28px, 4vw, 64px);
+}
+
+.section-spacing-lg {
+    padding-block: clamp(64px, 9vw, 140px);
+}
+
+
+/* ==========================================================================
+   33. SAFE AREA SUPPORT
+   ========================================================================== */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .mobile-bottom-bar {
+        padding-bottom:
+            max(12px, env(safe-area-inset-bottom));
+    }
+
+    .toast-container {
+        bottom:
+            max(12px, env(safe-area-inset-bottom));
+    }
+}
+
+
+/* ==========================================================================
+   34. MOBILE BOTTOM NAVIGATION
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .mobile-bottom-bar {
+        display: flex;
+        position: fixed;
+
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+
+        z-index: 90;
+
+        padding: 8px;
+
+        border-radius: 20px;
+
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    body.has-mobile-bottom-bar {
+        padding-bottom: 88px;
+    }
+}
+
+@media (min-width: 768px) {
+    .mobile-bottom-bar {
+        display: none;
+    }
+}
+
+
+/* ==========================================================================
+   35. MOBILE MENU
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+    .mobile-menu {
+        display: none;
+
+        position: fixed;
+
+        top: var(--header-height, 64px);
+        left: 12px;
+        right: 12px;
+
+        z-index: 95;
+
+        max-height: calc(100vh - 84px);
+
+        overflow-y: auto;
+
+        border-radius: 20px;
+    }
+
+    .mobile-menu.is-open,
+    .mobile-menu[data-open="true"] {
+        display: block;
+    }
+
+    .mobile-menu-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .mobile-menu-item {
+        width: 100%;
+        min-height: 48px;
+    }
+}
+
+
+/* ==========================================================================
+   36. MOBILE OVERLAY
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+    .mobile-overlay {
+        position: fixed;
+        inset: 0;
+
+        z-index: 80;
+
+        background:
+            rgba(4, 5, 10, 0.56);
+
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+
+        opacity: 0;
+        visibility: hidden;
+
+        transition:
+            opacity 180ms ease,
+            visibility 180ms ease;
+    }
+
+    .mobile-overlay.is-visible,
+    .mobile-overlay[data-visible="true"] {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+
+/* ==========================================================================
+   37. CONTENT VISIBILITY OPTIMIZATION
+   ========================================================================== */
+
+@media (max-width: 600px) {
+    .desktop-secondary-info {
+        display: none;
+    }
+
+    .mobile-primary-info {
+        display: block;
+    }
+}
+
+@media (min-width: 601px) {
+    .desktop-secondary-info {
+        display: block;
+    }
+
+    .mobile-primary-info {
+        display: none;
+    }
+}
+
+
+/* ==========================================================================
+   38. MOBILE SEARCH RESULT CONTROLS
+   ========================================================================== */
+
+@media (max-width: 600px) {
+    .results-toolbar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+    }
+
+    .results-toolbar .filter-button {
+        min-width: 44px;
+    }
+
+    .results-count {
+        font-size: 13px;
+    }
+}
+
+
+/* ==========================================================================
+   39. MOBILE ANALYTICS
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    .analytics-chart {
+        min-height: 190px;
+    }
+
+    .chart-legend {
+        display: flex;
+        gap: 10px;
+
+        overflow-x: auto;
+        flex-wrap: nowrap;
+
+        scrollbar-width: none;
+    }
+
+    .chart-legend::-webkit-scrollbar {
+        display: none;
+    }
+
+    .chart-legend > * {
+        flex: 0 0 auto;
+    }
+}
+
+
+/* ==========================================================================
+   40. MOBILE PROGRESS
+   ========================================================================== */
+
+@media (max-width: 600px) {
+    .progress-label {
+        gap: 8px;
+        font-size: 12px;
+    }
+
+    .progress-value {
+        font-size: 12px;
+    }
+}
+
+
+/* ==========================================================================
+   41. ACCESSIBLE LARGE TEXT MODE
+   ========================================================================== */
+
+@media (min-width: 768px) {
+    html[data-font-size="large"] {
+        font-size: 18px;
+    }
+
+    html[data-font-size="larger"] {
+        font-size: 20px;
+    }
+}
+
+
+/* ==========================================================================
+   42. HIGH CONTRAST RESPONSIVE SUPPORT
+   ========================================================================== */
+
+@media (prefers-contrast: more) {
+    .glass-effect,
+    .glass-effect--strong {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    .card,
+    .panel,
+    .memory-card,
+    .stat-card {
+        border-width: 1px;
+    }
+}
+
+
+/* ==========================================================================
+   43. PERFORMANCE MODE
+   ========================================================================== */
+
+@media (max-width: 767px) {
+    [data-performance="auto"] .grid-effect {
+        opacity: 0.45;
+    }
+
+    [data-performance="auto"] .noise-effect::after {
+        opacity: 0.012;
+    }
+
+    [data-performance="auto"] .hero-glow {
+        filter: blur(24px);
+    }
+}
+
+
+/* ==========================================================================
+   44. MOBILE PERFORMANCE
+   ========================================================================== */
+
+@media (max-width: 480px) {
+    .grid-effect {
+        opacity: 0.3;
+    }
+
+    .hero-glow {
+        filter: blur(20px);
+        opacity: 0.7;
+    }
+
+    .floating-orb,
+    .glow-orb {
+        opacity: 0.35;
+    }
+}
+
+
+/* ==========================================================================
+   45. PRINT
+   ========================================================================== */
+
+@media print {
+    html,
+    body {
+        min-width: 0;
+        width: 100%;
+        overflow: visible;
+    }
+
+    .mobile-only,
+    .mobile-menu,
+    .mobile-bottom-bar,
+    .mobile-overlay,
+    .nav-toggle,
+    .mobile-menu-toggle {
+        display: none !important;
+    }
+
+    .container,
+    .page-container,
+    .main-container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+    }
+
+    .memory-grid,
+    .stats-grid,
+    .dashboard-grid,
+    .analytics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+/* ==========================================================================
+   END OF MEMORYOS PREMIUM RESPONSIVE SYSTEM
+   ========================================================================== */

@@ -1,0 +1,1713 @@
+"""
+MemoryOS — Premium Upload API
+=============================
+
+Production-grade image ingestion boundary.
+
+Responsibilities
+----------------
+- Validate uploaded images
+- Securely store original files
+- Generate thumbnails
+- Calculate SHA-256 hashes
+- Detect duplicates
+- Create stable memory identifiers
+- Persist upload metadata
+- Trigger the REAL MemoryOS processing pipeline
+- Expose original/preview image endpoints
+- Support single and batch uploads
+- Provide processing status
+- Return frontend-friendly structured responses
+
+Architecture
+------------
+
+Browser
+   │
+   ▼
+POST /upload
+   │
+   ▼
+Validation
+   │
+   ▼
+SHA-256
+   │
+   ▼
+Duplicate detection
+   │
+   ▼
+Original + Thumbnail
+   │
+   ▼
+backend.services.processing_service
+   │
+   ├── OCR
+   ├── Vision / Gemini
+   ├── Classification
+   ├── Entities
+   ├── Embedding
+   ├── FAISS
+   └── Database
+   │
+   ▼
+Frontend JSON
+
+IMPORTANT
+---------
+This module does NOT contain OCR, Gemini, embedding, FAISS,
+or database intelligence.
+
+Those responsibilities remain inside the existing
+MemoryOS processing architecture.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import mimetypes
+import re
+import uuid
+from datetime import datetime, timezone
+from io import BytesIO
+from pathlib import Path
+from typing import Any
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+# ============================================================================
+# LOGGER
+# ============================================================================
+
+logger = logging.getLogger("memoryos.upload")
+
+
+# ============================================================================
+# ROUTER
+# ============================================================================
+
+router = APIRouter(
+    prefix="/upload",
+    tags=["Upload"],
+)
+
+
+# ============================================================================
+# PATHS
+# ============================================================================
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+
+DATA_DIR = BASE_DIR / "data"
+
+UPLOAD_DIR = DATA_DIR / "uploads"
+
+THUMBNAIL_DIR = DATA_DIR / "thumbnails"
+
+METADATA_DIR = DATA_DIR / "database" / "uploads"
+
+
+for directory in (
+    UPLOAD_DIR,
+    THUMBNAIL_DIR,
+    METADATA_DIR,
+):
+    directory.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+
+# ============================================================================
+# LIMITS
+# ============================================================================
+
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+MAX_BATCH_FILES = 50
+
+MIN_IMAGE_WIDTH = 16
+
+MIN_IMAGE_HEIGHT = 16
+
+THUMBNAIL_SIZE = (720, 720)
+
+
+# ============================================================================
+# SUPPORTED TYPES
+# ============================================================================
+
+SUPPORTED_EXTENSIONS = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
+
+SUPPORTED_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+
+# ============================================================================
+# EXCEPTIONS
+# ============================================================================
+
+
+class UploadServiceError(Exception):
+    """Base upload service exception."""
+
+
+class UploadValidationError(UploadServiceError):
+    """Raised when an uploaded file is invalid."""
+
+
+class DuplicateUploadError(UploadServiceError):
+    """Raised when an uploaded image already exists."""
+
+
+class UploadStorageError(UploadServiceError):
+    """Raised when upload storage fails."""
+
+
+# ============================================================================
+# TIME HELPERS
+# ============================================================================
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware UTC datetime."""
+
+    return datetime.now(timezone.utc)
+
+
+def utc_now_iso() -> str:
+    """Return current UTC timestamp."""
+
+    return utc_now().isoformat()
+
+
+# ============================================================================
+# STRING HELPERS
+# ============================================================================
+
+
+def clean_string(value: Any) -> str:
+    """Safely normalize arbitrary input into a string."""
+
+    if value is None:
+        return ""
+
+    if isinstance(value, bytes):
+        value = value.decode(
+            "utf-8",
+            errors="replace",
+        )
+
+    value = str(value)
+
+    value = value.replace(
+        "\x00",
+        " ",
+    )
+
+    value = re.sub(
+        r"\s+",
+        " ",
+        value,
+    )
+
+    return value.strip()
+
+
+def safe_filename(filename: str | None) -> str:
+    """
+    Convert an arbitrary browser filename into a safe local filename.
+    """
+
+    value = clean_string(filename)
+
+    if not value:
+        value = "upload"
+
+    value = Path(value).name
+
+    value = re.sub(
+        r"[^a-zA-Z0-9._-]+",
+        "_",
+        value,
+    )
+
+    value = value.strip("._")
+
+    if not value:
+        value = "upload"
+
+    return value[:180]
+
+
+# ============================================================================
+# HASHING
+# ============================================================================
+
+
+def calculate_sha256(data: bytes) -> str:
+    """Calculate SHA-256 hash of image bytes."""
+
+    return hashlib.sha256(data).hexdigest()
+
+
+# ============================================================================
+# MEMORY ID
+# ============================================================================
+
+
+def generate_memory_id(image_hash: str) -> str:
+    """
+    Generate deterministic MemoryOS ID from image hash.
+    """
+
+    normalized = clean_string(image_hash).lower()
+
+    if not normalized:
+        return "mem_" + uuid.uuid4().hex
+
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    return "mem_" + digest[:32]
+
+
+# ============================================================================
+# MIME / EXTENSION
+# ============================================================================
+
+
+def detect_extension(
+    filename: str,
+    content_type: str | None,
+) -> str:
+    """Determine safe image extension."""
+
+    suffix = Path(filename).suffix.lower()
+
+    if suffix in SUPPORTED_EXTENSIONS:
+        return suffix
+
+    mime = clean_string(content_type).lower()
+
+    for extension, supported_mime in SUPPORTED_EXTENSIONS.items():
+
+        if mime == supported_mime:
+            return extension
+
+    guessed = mimetypes.guess_extension(mime)
+
+    if guessed and guessed.lower() in SUPPORTED_EXTENSIONS:
+        return guessed.lower()
+
+    raise UploadValidationError(
+        "Unsupported image format. " "Supported formats: JPEG, PNG and WEBP."
+    )
+
+
+# ============================================================================
+# IMAGE VALIDATION
+# ============================================================================
+
+
+def validate_image_bytes(
+    data: bytes,
+    *,
+    filename: str,
+    content_type: str | None,
+) -> tuple[str, int, int]:
+    """
+    Validate actual image contents.
+
+    Extension and MIME are not trusted alone.
+    Pillow verifies the image structure.
+    """
+
+    if not data:
+        raise UploadValidationError("Uploaded file is empty.")
+
+    if len(data) > MAX_FILE_SIZE:
+        raise UploadValidationError(
+            f"File exceeds the " f"{MAX_FILE_SIZE // (1024 * 1024)} MB limit."
+        )
+
+    extension = detect_extension(
+        filename,
+        content_type,
+    )
+
+    try:
+
+        with Image.open(BytesIO(data)) as image:
+
+            image.verify()
+
+        with Image.open(BytesIO(data)) as image:
+
+            width, height = image.size
+
+            actual_format = (image.format or "").upper()
+
+    except (
+        UnidentifiedImageError,
+        OSError,
+        ValueError,
+    ) as exc:
+
+        raise UploadValidationError("The uploaded file is not a valid image.") from exc
+
+    if width < MIN_IMAGE_WIDTH or height < MIN_IMAGE_HEIGHT:
+        raise UploadValidationError("Image dimensions are too small.")
+
+    format_to_mime = {
+        "JPEG": "image/jpeg",
+        "JPG": "image/jpeg",
+        "PNG": "image/png",
+        "WEBP": "image/webp",
+    }
+
+    actual_mime = format_to_mime.get(actual_format)
+
+    if actual_mime not in SUPPORTED_MIME_TYPES:
+        raise UploadValidationError("Unsupported image format.")
+
+    return (
+        extension,
+        width,
+        height,
+    )
+
+
+# ============================================================================
+# THUMBNAIL
+# ============================================================================
+
+
+def create_thumbnail(
+    data: bytes,
+    output_path: Path,
+) -> None:
+    """
+    Generate browser-friendly JPEG thumbnail.
+    """
+
+    try:
+
+        with Image.open(BytesIO(data)) as image:
+
+            image = ImageOps.exif_transpose(image)
+
+            if image.mode not in (
+                "RGB",
+                "RGBA",
+            ):
+                image = image.convert("RGB")
+
+            image.thumbnail(
+                THUMBNAIL_SIZE,
+                Image.Resampling.LANCZOS,
+            )
+
+            if image.mode == "RGBA":
+
+                background = Image.new(
+                    "RGB",
+                    image.size,
+                    "white",
+                )
+
+                background.paste(
+                    image,
+                    mask=image.getchannel("A"),
+                )
+
+                image = background
+
+            elif image.mode != "RGB":
+
+                image = image.convert("RGB")
+
+            image.save(
+                output_path,
+                format="JPEG",
+                quality=88,
+                optimize=True,
+            )
+
+    except (
+        OSError,
+        ValueError,
+    ) as exc:
+
+        raise UploadStorageError("Unable to generate image thumbnail.") from exc
+
+
+# ============================================================================
+# METADATA
+# ============================================================================
+
+
+def metadata_path(memory_id: str) -> Path:
+    """Return metadata JSON path."""
+
+    return METADATA_DIR / f"{memory_id}.json"
+
+
+def save_metadata(
+    memory_id: str,
+    metadata: dict[str, Any],
+) -> None:
+    """Atomically persist metadata."""
+
+    target = metadata_path(memory_id)
+
+    temporary = target.with_suffix(".json.tmp")
+
+    try:
+
+        with temporary.open(
+            "w",
+            encoding="utf-8",
+        ) as handle:
+
+            json.dump(
+                metadata,
+                handle,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+
+        temporary.replace(target)
+
+    except OSError as exc:
+
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        raise UploadStorageError("Unable to persist upload metadata.") from exc
+
+
+def load_metadata(
+    memory_id: str,
+) -> dict[str, Any] | None:
+    """Load upload metadata."""
+
+    target = metadata_path(memory_id)
+
+    if not target.exists():
+        return None
+
+    try:
+
+        with target.open(
+            "r",
+            encoding="utf-8",
+        ) as handle:
+
+            data = json.load(handle)
+
+        if isinstance(data, dict):
+            return data
+
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ) as exc:
+
+        logger.warning(
+            "Unable to read metadata for %s: %s",
+            memory_id,
+            exc,
+        )
+
+    return None
+
+
+# ============================================================================
+# DUPLICATE DETECTION
+# ============================================================================
+
+
+def find_duplicate_by_hash(
+    image_hash: str,
+) -> dict[str, Any] | None:
+    """
+    Find existing upload using SHA-256 metadata index.
+    """
+
+    normalized_hash = clean_string(image_hash).lower()
+
+    if not normalized_hash:
+        return None
+
+    try:
+
+        for path in METADATA_DIR.glob("*.json"):
+
+            try:
+
+                with path.open(
+                    "r",
+                    encoding="utf-8",
+                ) as handle:
+
+                    metadata = json.load(handle)
+
+            except (
+                OSError,
+                json.JSONDecodeError,
+            ):
+                continue
+
+            if not isinstance(
+                metadata,
+                dict,
+            ):
+                continue
+
+            stored_hash = clean_string(metadata.get("image_hash")).lower()
+
+            if stored_hash == normalized_hash:
+                return metadata
+
+    except OSError as exc:
+
+        logger.warning(
+            "Duplicate scan failed: %s",
+            exc,
+        )
+
+    return None
+
+
+# ============================================================================
+# ORIGINAL STORAGE
+# ============================================================================
+
+
+def store_original(
+    data: bytes,
+    *,
+    memory_id: str,
+    extension: str,
+) -> Path:
+    """Store original image atomically."""
+
+    target = UPLOAD_DIR / f"{memory_id}{extension}"
+
+    temporary = UPLOAD_DIR / (f".{memory_id}." f"{uuid.uuid4().hex}.tmp")
+
+    try:
+
+        with temporary.open("wb") as handle:
+
+            handle.write(data)
+
+        temporary.replace(target)
+
+        return target
+
+    except OSError as exc:
+
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        raise UploadStorageError("Unable to store uploaded image.") from exc
+
+
+def find_original(
+    memory_id: str,
+) -> Path | None:
+    """Locate original image."""
+
+    for extension in SUPPORTED_EXTENSIONS:
+
+        candidate = UPLOAD_DIR / f"{memory_id}{extension}"
+
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
+def thumbnail_path(
+    memory_id: str,
+) -> Path:
+    """Return thumbnail path."""
+
+    return THUMBNAIL_DIR / f"{memory_id}.jpg"
+
+
+# ============================================================================
+# REAL PROCESSING PIPELINE
+# ============================================================================
+
+
+def process_uploaded_memory(
+    *,
+    source: Path,
+    memory_id: str,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Run the EXISTING MemoryOS processing pipeline.
+
+    IMPORTANT:
+
+    processing_service.py exposes:
+
+        process_image(...)
+
+    as a module-level function.
+
+    ProcessingService itself exposes:
+
+        process(...)
+
+    It does NOT expose:
+
+        ProcessingService.process_image()
+
+    Therefore this function intentionally calls the
+    existing module-level process_image() API directly.
+    """
+
+    logger.info(
+        "Starting MemoryOS processing: memory_id=%s source=%s",
+        memory_id,
+        source,
+    )
+
+    try:
+
+        from backend.services.processing_service import (
+            process_image,
+        )
+
+    except Exception as exc:
+
+        logger.exception(
+            "Unable to import MemoryOS processing service " "for memory %s.",
+            memory_id,
+        )
+
+        return {
+            "success": False,
+            "processed": False,
+            "status": "processing_failed",
+            "error": ("Unable to import processing service: " f"{exc}"),
+        }
+
+    try:
+
+        result = process_image(
+            source,
+            source_name="upload",
+            metadata={
+                **metadata,
+                "memory_id": memory_id,
+                "source": "upload",
+            },
+            index=True,
+            allow_partial_success=True,
+        )
+
+        normalized = normalize_processing_result(result)
+
+        logger.info(
+            "MemoryOS processing completed: " "memory_id=%s status=%s processed=%s",
+            memory_id,
+            normalized.get("status"),
+            normalized.get("processed"),
+        )
+
+        return normalized
+
+    except Exception as exc:
+
+        logger.exception(
+            "MemoryOS processing failed: memory_id=%s",
+            memory_id,
+        )
+
+        return {
+            "success": False,
+            "processed": False,
+            "status": "processing_failed",
+            "error": str(exc),
+        }
+
+
+# ============================================================================
+# PROCESSING RESULT NORMALIZATION
+# ============================================================================
+
+
+def normalize_processing_result(
+    result: Any,
+) -> dict[str, Any]:
+    """
+    Convert ProcessingResult/dataclass/dict into JSON-safe dict.
+    """
+
+    if result is None:
+
+        return {
+            "success": True,
+            "processed": True,
+            "status": "processed",
+        }
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        normalized = dict(result)
+
+        normalized.setdefault(
+            "success",
+            True,
+        )
+
+        normalized.setdefault(
+            "processed",
+            True,
+        )
+
+        normalized.setdefault(
+            "status",
+            "processed",
+        )
+
+        return make_json_safe(normalized)
+
+    if hasattr(
+        result,
+        "to_dict",
+    ):
+
+        try:
+
+            data = result.to_dict()
+
+            if isinstance(
+                data,
+                dict,
+            ):
+
+                data.setdefault(
+                    "success",
+                    True,
+                )
+
+                data.setdefault(
+                    "processed",
+                    True,
+                )
+
+                data.setdefault(
+                    "status",
+                    "processed",
+                )
+
+                return make_json_safe(data)
+
+        except Exception:
+
+            logger.warning(
+                "Processing result to_dict() failed.",
+                exc_info=True,
+            )
+
+    if hasattr(
+        result,
+        "__dict__",
+    ):
+
+        try:
+
+            data = dict(vars(result))
+
+            data.setdefault(
+                "success",
+                True,
+            )
+
+            data.setdefault(
+                "processed",
+                True,
+            )
+
+            data.setdefault(
+                "status",
+                "processed",
+            )
+
+            return make_json_safe(data)
+
+        except Exception:
+
+            logger.warning(
+                "Unable to serialize processing result.",
+                exc_info=True,
+            )
+
+    return {
+        "success": True,
+        "processed": True,
+        "status": "processed",
+        "result": str(result),
+    }
+
+
+def make_json_safe(
+    value: Any,
+) -> Any:
+    """
+    Recursively convert common Python objects into
+    JSON-safe structures.
+    """
+
+    if value is None:
+        return None
+
+    if isinstance(
+        value,
+        (str, int, float, bool),
+    ):
+        return value
+
+    if isinstance(
+        value,
+        Path,
+    ):
+        return str(value)
+
+    if isinstance(
+        value,
+        datetime,
+    ):
+        return value.isoformat()
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        return {str(key): make_json_safe(item) for key, item in value.items()}
+
+    if isinstance(
+        value,
+        (list, tuple, set),
+    ):
+
+        return [make_json_safe(item) for item in value]
+
+    if hasattr(
+        value,
+        "to_dict",
+    ):
+
+        try:
+            return make_json_safe(value.to_dict())
+        except Exception:
+            pass
+
+    if hasattr(
+        value,
+        "__dict__",
+    ):
+
+        try:
+            return make_json_safe(vars(value))
+        except Exception:
+            pass
+
+    return str(value)
+
+
+# ============================================================================
+# URL BUILDERS
+# ============================================================================
+
+
+def build_file_urls(
+    memory_id: str,
+) -> dict[str, str]:
+    """Build frontend-friendly relative URLs."""
+
+    return {
+        "original_url": (f"/upload/file/{memory_id}"),
+        "preview_url": (f"/upload/file/{memory_id}" "?preview=true"),
+        "thumbnail_url": (f"/upload/file/{memory_id}" "?thumbnail=true"),
+    }
+
+
+# ============================================================================
+# RESPONSE
+# ============================================================================
+
+
+def build_upload_response(
+    *,
+    memory_id: str,
+    filename: str,
+    image_hash: str,
+    width: int,
+    height: int,
+    file_size: int,
+    duplicate: bool,
+    status: str,
+    processing: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build consistent upload response."""
+
+    response = {
+        "success": True,
+        "memory_id": memory_id,
+        "id": memory_id,
+        "filename": filename,
+        "image_hash": image_hash,
+        "duplicate": duplicate,
+        "status": status,
+        "file": {
+            "filename": filename,
+            "size": file_size,
+            "width": width,
+            "height": height,
+        },
+        "urls": build_file_urls(memory_id),
+        "created_at": utc_now_iso(),
+    }
+
+    if processing is not None:
+        response["processing"] = processing
+
+    return response
+
+
+# ============================================================================
+# SINGLE UPLOAD
+# ============================================================================
+
+
+async def _handle_upload(
+    file: UploadFile,
+    *,
+    allow_duplicate: bool = True,
+) -> dict[str, Any]:
+    """Internal upload implementation."""
+
+    if file is None:
+        raise UploadValidationError("No file was provided.")
+
+    original_filename = safe_filename(file.filename)
+
+    content_type = clean_string(file.content_type).lower()
+
+    logger.info(
+        "Receiving upload: filename=%s mime=%s",
+        original_filename,
+        content_type or "unknown",
+    )
+
+    try:
+
+        data = await file.read()
+
+    except Exception as exc:
+
+        raise UploadStorageError("Unable to read uploaded file.") from exc
+
+    if not data:
+        raise UploadValidationError("Uploaded file is empty.")
+
+    if len(data) > MAX_FILE_SIZE:
+
+        raise UploadValidationError(
+            f"File exceeds the " f"{MAX_FILE_SIZE // (1024 * 1024)} MB limit."
+        )
+
+    # ------------------------------------------------------------------------
+    # HASH
+    # ------------------------------------------------------------------------
+
+    image_hash = calculate_sha256(data)
+
+    # ------------------------------------------------------------------------
+    # DUPLICATE
+    # ------------------------------------------------------------------------
+
+    duplicate = find_duplicate_by_hash(image_hash)
+
+    if duplicate and allow_duplicate:
+
+        existing_id = clean_string(duplicate.get("memory_id") or duplicate.get("id"))
+
+        if existing_id:
+
+            logger.info(
+                "Duplicate upload detected: " "%s -> %s",
+                original_filename,
+                existing_id,
+            )
+
+            return build_upload_response(
+                memory_id=existing_id,
+                filename=clean_string(
+                    duplicate.get(
+                        "filename",
+                        original_filename,
+                    )
+                ),
+                image_hash=image_hash,
+                width=int(
+                    duplicate.get(
+                        "width",
+                        0,
+                    )
+                    or 0
+                ),
+                height=int(
+                    duplicate.get(
+                        "height",
+                        0,
+                    )
+                    or 0
+                ),
+                file_size=int(
+                    duplicate.get(
+                        "file_size",
+                        len(data),
+                    )
+                    or len(data)
+                ),
+                duplicate=True,
+                status="duplicate",
+                processing={
+                    "success": True,
+                    "processed": bool(
+                        duplicate.get(
+                            "processed",
+                            False,
+                        )
+                    ),
+                    "status": "duplicate",
+                    "message": ("Image already exists in MemoryOS."),
+                },
+            )
+
+    # ------------------------------------------------------------------------
+    # VALIDATE
+    # ------------------------------------------------------------------------
+
+    extension, width, height = validate_image_bytes(
+        data,
+        filename=original_filename,
+        content_type=content_type,
+    )
+
+    # ------------------------------------------------------------------------
+    # MEMORY ID
+    # ------------------------------------------------------------------------
+
+    memory_id = generate_memory_id(image_hash)
+
+    # ------------------------------------------------------------------------
+    # STORE ORIGINAL
+    # ------------------------------------------------------------------------
+
+    original_path = store_original(
+        data,
+        memory_id=memory_id,
+        extension=extension,
+    )
+
+    # ------------------------------------------------------------------------
+    # THUMBNAIL
+    # ------------------------------------------------------------------------
+
+    preview_path = thumbnail_path(memory_id)
+
+    try:
+
+        create_thumbnail(
+            data,
+            preview_path,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Thumbnail generation failed for %s.",
+            memory_id,
+        )
+
+    # ------------------------------------------------------------------------
+    # METADATA
+    # ------------------------------------------------------------------------
+
+    metadata = {
+        "memory_id": memory_id,
+        "id": memory_id,
+        "filename": original_filename,
+        "original_filename": original_filename,
+        "mime_type": (
+            SUPPORTED_EXTENSIONS.get(
+                extension,
+                content_type,
+            )
+        ),
+        "extension": extension,
+        "file_size": len(data),
+        "file_size_bytes": len(data),
+        "width": width,
+        "height": height,
+        "image_hash": image_hash,
+        "original_path": str(original_path),
+        "thumbnail_path": (str(preview_path) if preview_path.exists() else None),
+        "created_at": utc_now_iso(),
+        "updated_at": utc_now_iso(),
+        "processed": False,
+        "status": "uploaded",
+        "duplicate": False,
+        "source": "upload",
+    }
+
+    save_metadata(
+        memory_id,
+        metadata,
+    )
+
+    # ------------------------------------------------------------------------
+    # REAL AI PROCESSING
+    # ------------------------------------------------------------------------
+
+    processing = process_uploaded_memory(
+        source=original_path,
+        memory_id=memory_id,
+        metadata=metadata,
+    )
+
+    # ------------------------------------------------------------------------
+    # UPDATE METADATA
+    # ------------------------------------------------------------------------
+
+    processed = bool(
+        processing.get(
+            "processed",
+            False,
+        )
+    )
+
+    processing_status = (
+        clean_string(
+            processing.get(
+                "status",
+                "unknown",
+            )
+        )
+        or "unknown"
+    )
+
+    metadata.update(
+        {
+            "processed": processed,
+            "processing_status": processing_status,
+            "processing_result": processing,
+            "updated_at": utc_now_iso(),
+        }
+    )
+
+    save_metadata(
+        memory_id,
+        metadata,
+    )
+
+    # ------------------------------------------------------------------------
+    # FINAL RESPONSE STATUS
+    # ------------------------------------------------------------------------
+
+    status = (
+        processing_status
+        if processed
+        else (
+            "processing_failed"
+            if not processing.get(
+                "success",
+                False,
+            )
+            else processing_status
+        )
+    )
+
+    logger.info(
+        "Upload completed: id=%s status=%s processed=%s",
+        memory_id,
+        status,
+        processed,
+    )
+
+    return build_upload_response(
+        memory_id=memory_id,
+        filename=original_filename,
+        image_hash=image_hash,
+        width=width,
+        height=height,
+        file_size=len(data),
+        duplicate=False,
+        status=status,
+        processing=processing,
+    )
+
+
+# ============================================================================
+# POST /upload
+# ============================================================================
+
+
+@router.post(
+    "",
+    summary="Upload an image",
+    response_description="MemoryOS upload result",
+)
+async def upload_image(
+    file: UploadFile = File(
+        ...,
+        description=("JPEG, PNG or WEBP image. " "Maximum size: 10 MB."),
+    ),
+):
+    """
+    Upload one image into MemoryOS.
+
+    The image is validated, stored, thumbnailed and then
+    passed into the real processing pipeline.
+    """
+
+    try:
+
+        return await _handle_upload(file)
+
+    except UploadValidationError as exc:
+
+        logger.warning(
+            "Upload validation failed: %s",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": "invalid_upload",
+                "message": str(exc),
+            },
+        ) from exc
+
+    except UploadStorageError as exc:
+
+        logger.exception("Upload storage failure.")
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": "storage_error",
+                "message": str(exc),
+            },
+        ) from exc
+
+    except Exception as exc:
+
+        logger.exception("Unexpected upload error.")
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "error": "internal_server_error",
+                "message": ("MemoryOS could not process the upload."),
+            },
+        ) from exc
+
+
+# ============================================================================
+# POST /upload/batch
+# ============================================================================
+
+
+@router.post(
+    "/batch",
+    summary="Upload multiple images",
+    response_description=("Batch MemoryOS upload result"),
+)
+async def upload_batch(
+    files: list[UploadFile] = File(
+        ...,
+        description=("Multiple JPEG, PNG or WEBP images. " "Maximum 50 files."),
+    ),
+):
+    """
+    Upload multiple images.
+
+    One failed file does not invalidate the
+    other uploads.
+    """
+
+    if not files:
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": "empty_batch",
+                "message": ("No files were provided."),
+            },
+        )
+
+    if len(files) > MAX_BATCH_FILES:
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": ("batch_limit_exceeded"),
+                "message": (
+                    f"Maximum " f"{MAX_BATCH_FILES} files " "are allowed per batch."
+                ),
+            },
+        )
+
+    results: list[dict[str, Any]] = []
+
+    successful = 0
+
+    failed = 0
+
+    duplicates = 0
+
+    processed = 0
+
+    for file in files:
+
+        try:
+
+            result = await _handle_upload(file)
+
+            results.append(result)
+
+            successful += 1
+
+            if result.get("duplicate"):
+                duplicates += 1
+
+            processing = result.get("processing")
+
+            if isinstance(
+                processing,
+                dict,
+            ) and processing.get("processed"):
+                processed += 1
+
+        except UploadServiceError as exc:
+
+            failed += 1
+
+            results.append(
+                {
+                    "success": False,
+                    "filename": safe_filename(file.filename),
+                    "error": "upload_failed",
+                    "message": str(exc),
+                }
+            )
+
+        except Exception:
+
+            failed += 1
+
+            logger.exception(
+                "Unexpected batch upload failure " "for %s.",
+                file.filename,
+            )
+
+            results.append(
+                {
+                    "success": False,
+                    "filename": safe_filename(file.filename),
+                    "error": ("internal_server_error"),
+                    "message": ("Unable to process this file."),
+                }
+            )
+
+    return {
+        "success": failed == 0,
+        "total": len(files),
+        "successful": successful,
+        "failed": failed,
+        "duplicates": duplicates,
+        "processed": processed,
+        "results": results,
+        "created_at": utc_now_iso(),
+    }
+
+
+# ============================================================================
+# GET /upload/file/{memory_id}
+# ============================================================================
+
+
+@router.get(
+    "/file/{memory_id}",
+    summary="Retrieve uploaded image",
+)
+async def get_uploaded_file(
+    memory_id: str,
+    preview: bool = False,
+    thumbnail: bool = False,
+):
+    """
+    Return original image or thumbnail.
+    """
+
+    memory_id = clean_string(memory_id)
+
+    if not memory_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": ("invalid_memory_id"),
+                "message": ("Memory ID is required."),
+            },
+        )
+
+    if not re.fullmatch(
+        r"[A-Za-z0-9_-]+",
+        memory_id,
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": ("invalid_memory_id"),
+                "message": ("Invalid memory ID."),
+            },
+        )
+
+    # ------------------------------------------------------------------------
+    # PREVIEW / THUMBNAIL
+    # ------------------------------------------------------------------------
+
+    if thumbnail or preview:
+
+        preview_file = thumbnail_path(memory_id)
+
+        if preview_file.exists():
+
+            return FileResponse(
+                path=preview_file,
+                media_type="image/jpeg",
+                filename=(f"{memory_id}.jpg"),
+                headers={
+                    "Cache-Control": ("public, " "max-age=86400"),
+                },
+            )
+
+    # ------------------------------------------------------------------------
+    # ORIGINAL
+    # ------------------------------------------------------------------------
+
+    original = find_original(memory_id)
+
+    if original is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "success": False,
+                "error": ("file_not_found"),
+                "message": ("Uploaded image " "could not be found."),
+            },
+        )
+
+    mime_type = SUPPORTED_EXTENSIONS.get(
+        original.suffix.lower(),
+        "application/octet-stream",
+    )
+
+    return FileResponse(
+        path=original,
+        media_type=mime_type,
+        filename=original.name,
+        headers={
+            "Cache-Control": ("public, max-age=86400"),
+        },
+    )
+
+
+# ============================================================================
+# GET /upload/status
+# ============================================================================
+
+
+@router.get(
+    "/status",
+    summary="Get upload storage status",
+)
+async def upload_status():
+    """Return upload storage statistics."""
+
+    try:
+
+        original_files = sum(
+            1
+            for extension in SUPPORTED_EXTENSIONS
+            for _ in UPLOAD_DIR.glob(f"*{extension}")
+        )
+
+        thumbnails = sum(1 for _ in THUMBNAIL_DIR.glob("*.jpg"))
+
+        metadata_files = sum(1 for _ in METADATA_DIR.glob("*.json"))
+
+        upload_bytes = 0
+
+        for extension in SUPPORTED_EXTENSIONS:
+
+            for path in UPLOAD_DIR.glob(f"*{extension}"):
+
+                try:
+
+                    upload_bytes += path.stat().st_size
+
+                except OSError:
+
+                    continue
+
+        return {
+            "success": True,
+            "status": "ready",
+            "storage": {
+                "upload_directory": str(UPLOAD_DIR),
+                "thumbnail_directory": str(THUMBNAIL_DIR),
+                "metadata_directory": str(METADATA_DIR),
+                "original_files": (original_files),
+                "thumbnails": thumbnails,
+                "metadata_files": (metadata_files),
+                "storage_bytes": (upload_bytes),
+                "storage_mb": round(
+                    upload_bytes / (1024 * 1024),
+                    2,
+                ),
+            },
+            "limits": {
+                "max_file_size_mb": (MAX_FILE_SIZE // (1024 * 1024)),
+                "max_batch_files": (MAX_BATCH_FILES),
+                "supported_types": sorted(SUPPORTED_MIME_TYPES),
+            },
+            "timestamp": utc_now_iso(),
+        }
+
+    except Exception:
+
+        logger.exception("Unable to calculate upload status.")
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "status": "error",
+                "error": ("status_unavailable"),
+                "message": ("Unable to read upload " "storage status."),
+            },
+        )
+
+
+# ============================================================================
+# GET /upload/metadata/{memory_id}
+# ============================================================================
+
+
+@router.get(
+    "/metadata/{memory_id}",
+    summary="Get uploaded image metadata",
+)
+async def get_upload_metadata(
+    memory_id: str,
+):
+    """
+    Return ingestion metadata.
+    """
+
+    memory_id = clean_string(memory_id)
+
+    if not re.fullmatch(
+        r"[A-Za-z0-9_-]+",
+        memory_id,
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": ("invalid_memory_id"),
+                "message": ("Invalid memory ID."),
+            },
+        )
+
+    metadata = load_metadata(memory_id)
+
+    if metadata is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "success": False,
+                "error": ("metadata_not_found"),
+                "message": ("Upload metadata " "was not found."),
+            },
+        )
+
+    return {
+        "success": True,
+        "memory_id": memory_id,
+        "metadata": metadata,
+        "urls": build_file_urls(memory_id),
+    }
+
+
+# ============================================================================
+# PUBLIC API
+# ============================================================================
+
+__all__ = [
+    "router",
+    "UploadServiceError",
+    "UploadValidationError",
+    "DuplicateUploadError",
+    "UploadStorageError",
+    "upload_image",
+    "upload_batch",
+    "get_uploaded_file",
+    "upload_status",
+    "get_upload_metadata",
+]

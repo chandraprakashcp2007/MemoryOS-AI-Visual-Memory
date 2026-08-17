@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+frontend/dist/
+frontend/node_modules/
+data/uploads/
+data/thumbnails/
+data/database/
+data/faiss/
+data/memory_index/
+data/backfill/
+data/search_feedback.json
+*.log

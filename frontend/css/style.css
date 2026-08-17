@@ -1,0 +1,53 @@
+/* ==========================================================================
+   MEMORYOS — MASTER STYLE SHEET
+   ========================================================================== */
+
+/*
+ * Load order matters.
+ * Each layer builds on the previous one.
+ */
+
+/* 01 — Design system */
+@import url("./variables.css");
+
+/* 02 — Browser normalization */
+@import url("./reset.css");
+
+/* 03 — Global typography + base styling */
+@import url("./base.css");
+
+/* 04 — Page structure */
+@import url("./layout.css");
+
+/* 05 — Reusable UI components */
+@import url("./components.css");
+
+/* 06 — Memory cards */
+@import url("./cards.css");
+
+/* 07 — Search experience */
+@import url("./search.css");
+
+/* 08 — Upload experience */
+@import url("./upload.css");
+
+/* 09 — Analytics dashboard */
+@import url("./dashboard.css");
+
+/* 10 — Memory detail drawer */
+@import url("./drawer.css");
+
+/* 11 — Panels, modals and command palette */
+@import url("./panels.css");
+
+/* 12 — Motion system */
+@import url("./animations.css");
+
+/* 13 — Visual effects */
+@import url("./effects.css");
+
+/* 14 — Responsive behavior */
+@import url("./responsive.css");
+
+/* 15 — Accessibility */
+@import url("./accessibility.css");

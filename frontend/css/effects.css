@@ -1,0 +1,1379 @@
+/* ==========================================================================
+   MEMORYOS — PREMIUM VISUAL EFFECTS
+   File: frontend/css/effects.css
+
+   Purpose:
+   - Cinematic visual depth
+   - Ambient lighting
+   - Glass effects
+   - AI glow
+   - Grid backgrounds
+   - Noise texture
+   - Spotlight effects
+   - Image shine
+   - Hover lighting
+   - Processing visuals
+   - Premium overlays
+
+   Design:
+   Dark-first / AI-native / restrained / cinematic
+   ========================================================================== */
+
+
+/* ==========================================================================
+   01. EFFECT ROOT
+   ========================================================================== */
+
+:root {
+    --effect-opacity-subtle: 0.035;
+    --effect-opacity-soft: 0.065;
+    --effect-opacity-medium: 0.1;
+    --effect-opacity-strong: 0.16;
+
+    --effect-blur-sm: 8px;
+    --effect-blur-md: 18px;
+    --effect-blur-lg: 32px;
+    --effect-blur-xl: 64px;
+
+    --effect-glow-size-sm: 120px;
+    --effect-glow-size-md: 240px;
+    --effect-glow-size-lg: 420px;
+
+    --effect-grid-size: 44px;
+}
+
+
+/* ==========================================================================
+   02. GLOBAL VISUAL LAYER
+   ========================================================================== */
+
+[data-effects="enabled"] {
+    isolation: isolate;
+}
+
+.effects-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   03. AMBIENT BACKGROUND
+   ========================================================================== */
+
+.ambient-background {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.ambient-background::before,
+.ambient-background::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    border-radius: 999px;
+    filter: blur(var(--effect-blur-xl));
+    transform: translateZ(0);
+}
+
+.ambient-background::before {
+    width: 420px;
+    height: 420px;
+    top: -180px;
+    left: -140px;
+    background:
+        radial-gradient(
+            circle,
+            rgba(124, 92, 255, 0.16) 0%,
+            rgba(124, 92, 255, 0.07) 32%,
+            transparent 72%
+        );
+}
+
+.ambient-background::after {
+    width: 480px;
+    height: 480px;
+    right: -180px;
+    bottom: -220px;
+    background:
+        radial-gradient(
+            circle,
+            rgba(46, 211, 183, 0.11) 0%,
+            rgba(46, 211, 183, 0.045) 30%,
+            transparent 72%
+        );
+}
+
+
+/* ==========================================================================
+   04. HERO AMBIENT GLOW
+   ========================================================================== */
+
+.hero-glow {
+    position: absolute;
+    width: min(720px, 75vw);
+    height: min(720px, 75vw);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(124, 92, 255, 0.11) 0%,
+            rgba(92, 103, 255, 0.065) 24%,
+            rgba(46, 211, 183, 0.025) 42%,
+            transparent 72%
+        );
+
+    filter: blur(32px);
+    opacity: 0.9;
+}
+
+
+/* ==========================================================================
+   05. GRID EFFECT
+   ========================================================================== */
+
+.grid-effect {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+
+    background-image:
+        linear-gradient(
+            rgba(255, 255, 255, var(--effect-opacity-subtle)) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(255, 255, 255, var(--effect-opacity-subtle)) 1px,
+            transparent 1px
+        );
+
+    background-size:
+        var(--effect-grid-size) var(--effect-grid-size);
+
+    mask-image:
+        linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.95),
+            rgba(0, 0, 0, 0.45) 55%,
+            transparent 100%
+        );
+
+    -webkit-mask-image:
+        linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.95),
+            rgba(0, 0, 0, 0.45) 55%,
+            transparent 100%
+        );
+}
+
+.grid-effect--soft {
+    opacity: 0.55;
+}
+
+.grid-effect--strong {
+    opacity: 1;
+}
+
+
+/* ==========================================================================
+   06. RADIAL GRID FADE
+   ========================================================================== */
+
+.grid-radial {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+
+    background:
+        radial-gradient(
+            circle at center,
+            transparent 0%,
+            rgba(0, 0, 0, 0.08) 35%,
+            rgba(0, 0, 0, 0.62) 100%
+        );
+}
+
+
+/* ==========================================================================
+   07. GLASS SURFACE
+   ========================================================================== */
+
+.glass-effect {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.055),
+            rgba(255, 255, 255, 0.018)
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.075);
+
+    backdrop-filter: blur(var(--effect-blur-md));
+    -webkit-backdrop-filter: blur(var(--effect-blur-md));
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 18px 60px rgba(0, 0, 0, 0.18);
+}
+
+.glass-effect--strong {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.075),
+            rgba(255, 255, 255, 0.025)
+        );
+
+    border-color: rgba(255, 255, 255, 0.1);
+
+    backdrop-filter: blur(var(--effect-blur-lg));
+    -webkit-backdrop-filter: blur(var(--effect-blur-lg));
+}
+
+
+/* ==========================================================================
+   08. GLASS TOP HIGHLIGHT
+   ========================================================================== */
+
+.glass-highlight {
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-highlight::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 6%;
+    right: 6%;
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.18),
+            transparent
+        );
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   09. PREMIUM BORDER GLOW
+   ========================================================================== */
+
+.border-glow {
+    position: relative;
+}
+
+.border-glow::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(124, 92, 255, 0.4),
+            transparent 35%,
+            transparent 65%,
+            rgba(46, 211, 183, 0.28)
+        );
+
+    opacity: 0.35;
+    filter: blur(7px);
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   10. AI GLOW
+   ========================================================================== */
+
+.ai-glow {
+    box-shadow:
+        0 0 0 1px rgba(124, 92, 255, 0.08),
+        0 0 30px rgba(124, 92, 255, 0.08),
+        0 0 80px rgba(124, 92, 255, 0.035);
+}
+
+.ai-glow--strong {
+    box-shadow:
+        0 0 0 1px rgba(124, 92, 255, 0.13),
+        0 0 36px rgba(124, 92, 255, 0.13),
+        0 0 110px rgba(124, 92, 255, 0.055);
+}
+
+.ai-glow--cyan {
+    box-shadow:
+        0 0 0 1px rgba(46, 211, 183, 0.09),
+        0 0 32px rgba(46, 211, 183, 0.1),
+        0 0 90px rgba(46, 211, 183, 0.035);
+}
+
+
+/* ==========================================================================
+   11. SPOTLIGHT
+   ========================================================================== */
+
+.spotlight {
+    position: relative;
+    overflow: hidden;
+}
+
+.spotlight::before {
+    content: "";
+    position: absolute;
+    width: 320px;
+    height: 320px;
+
+    top: var(--spotlight-y, 50%);
+    left: var(--spotlight-x, 50%);
+
+    transform: translate(-50%, -50%);
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(255, 255, 255, 0.075) 0%,
+            rgba(124, 92, 255, 0.035) 28%,
+            transparent 70%
+        );
+
+    filter: blur(8px);
+    pointer-events: none;
+
+    opacity: 0;
+    transition:
+        opacity 300ms ease;
+}
+
+.spotlight:hover::before {
+    opacity: 1;
+}
+
+
+/* ==========================================================================
+   12. CARD HOVER LIGHT
+   ========================================================================== */
+
+.hover-light {
+    position: relative;
+    overflow: hidden;
+}
+
+.hover-light::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            260px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+            rgba(255, 255, 255, 0.055),
+            transparent 68%
+        );
+
+    opacity: 0;
+    transition:
+        opacity 260ms ease;
+
+    pointer-events: none;
+}
+
+.hover-light:hover::after {
+    opacity: 1;
+}
+
+
+/* ==========================================================================
+   13. IMAGE SHINE
+   ========================================================================== */
+
+.image-shine {
+    position: relative;
+    overflow: hidden;
+}
+
+.image-shine::after {
+    content: "";
+    position: absolute;
+    inset: -80% -30%;
+
+    background:
+        linear-gradient(
+            115deg,
+            transparent 38%,
+            rgba(255, 255, 255, 0.06) 46%,
+            rgba(255, 255, 255, 0.13) 50%,
+            rgba(255, 255, 255, 0.06) 54%,
+            transparent 62%
+        );
+
+    transform: translateX(-70%);
+    opacity: 0;
+
+    pointer-events: none;
+    transition:
+        transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+        opacity 300ms ease;
+}
+
+.image-shine:hover::after {
+    transform: translateX(70%);
+    opacity: 1;
+}
+
+
+/* ==========================================================================
+   14. IMAGE VIGNETTE
+   ========================================================================== */
+
+.image-vignette {
+    position: relative;
+    overflow: hidden;
+}
+
+.image-vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            ellipse at center,
+            transparent 42%,
+            rgba(0, 0, 0, 0.12) 72%,
+            rgba(0, 0, 0, 0.38) 100%
+        );
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   15. CINEMATIC VIGNETTE
+   ========================================================================== */
+
+.cinematic-vignette {
+    position: relative;
+}
+
+.cinematic-vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            ellipse at center,
+            transparent 45%,
+            rgba(0, 0, 0, 0.16) 75%,
+            rgba(0, 0, 0, 0.42) 100%
+        );
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   16. NOISE TEXTURE
+   ========================================================================== */
+
+.noise-effect {
+    position: relative;
+    isolation: isolate;
+}
+
+.noise-effect::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    z-index: 10;
+
+    pointer-events: none;
+
+    opacity: 0.025;
+
+    background-image:
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E");
+
+    mix-blend-mode: soft-light;
+}
+
+
+/* ==========================================================================
+   17. SUBTLE SCANLINES
+   ========================================================================== */
+
+.scanlines {
+    position: relative;
+    overflow: hidden;
+}
+
+.scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    background:
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0,
+            transparent 3px,
+            rgba(255, 255, 255, 0.012) 4px,
+            transparent 5px
+        );
+
+    opacity: 0.3;
+}
+
+
+/* ==========================================================================
+   18. AI SCAN OVERLAY
+   ========================================================================== */
+
+.ai-scan {
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-scan::after {
+    content: "";
+    position: absolute;
+
+    left: 0;
+    right: 0;
+
+    top: -10%;
+
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(46, 211, 183, 0.08),
+            rgba(124, 92, 255, 0.75),
+            rgba(46, 211, 183, 0.08),
+            transparent
+        );
+
+    box-shadow:
+        0 0 18px rgba(124, 92, 255, 0.4);
+
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ai-scan.is-scanning::after {
+    opacity: 1;
+    animation: memoryos-ai-scan 2.6s linear infinite;
+}
+
+
+/* ==========================================================================
+   19. PROCESSING CONTAINER
+   ========================================================================== */
+
+.processing-surface {
+    position: relative;
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at 50% 30%,
+            rgba(124, 92, 255, 0.08),
+            transparent 45%
+        );
+}
+
+.processing-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(124, 92, 255, 0.045),
+            transparent
+        );
+
+    transform: translateX(-100%);
+    pointer-events: none;
+}
+
+.processing-surface.is-processing::before {
+    animation:
+        memoryos-processing-sweep 2.4s ease-in-out infinite;
+}
+
+
+/* ==========================================================================
+   20. STATUS GLOW
+   ========================================================================== */
+
+.status-glow {
+    position: relative;
+}
+
+.status-glow::before {
+    content: "";
+    position: absolute;
+
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+
+    background: currentColor;
+
+    box-shadow:
+        0 0 0 4px color-mix(
+            in srgb,
+            currentColor 9%,
+            transparent
+        ),
+        0 0 16px color-mix(
+            in srgb,
+            currentColor 35%,
+            transparent
+        );
+}
+
+
+/* ==========================================================================
+   21. SUCCESS GLOW
+   ========================================================================== */
+
+.success-glow {
+    box-shadow:
+        0 0 0 1px rgba(46, 211, 183, 0.08),
+        0 0 28px rgba(46, 211, 183, 0.08);
+}
+
+
+/* ==========================================================================
+   22. WARNING GLOW
+   ========================================================================== */
+
+.warning-glow {
+    box-shadow:
+        0 0 0 1px rgba(245, 181, 69, 0.08),
+        0 0 28px rgba(245, 181, 69, 0.07);
+}
+
+
+/* ==========================================================================
+   23. ERROR GLOW
+   ========================================================================== */
+
+.error-glow {
+    box-shadow:
+        0 0 0 1px rgba(244, 95, 95, 0.08),
+        0 0 28px rgba(244, 95, 95, 0.07);
+}
+
+
+/* ==========================================================================
+   24. FLOATING ORB
+   ========================================================================== */
+
+.floating-orb {
+    position: absolute;
+
+    width: var(--orb-size, 180px);
+    height: var(--orb-size, 180px);
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle at 35% 30%,
+            rgba(255, 255, 255, 0.1),
+            rgba(124, 92, 255, 0.08) 22%,
+            rgba(124, 92, 255, 0.025) 50%,
+            transparent 72%
+        );
+
+    filter: blur(1px);
+
+    opacity: var(--orb-opacity, 0.7);
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   25. ORB BLUR
+   ========================================================================== */
+
+.glow-orb {
+    position: absolute;
+
+    width: var(--glow-size, 260px);
+    height: var(--glow-size, 260px);
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            var(--glow-color, rgba(124, 92, 255, 0.16)) 0%,
+            transparent 68%
+        );
+
+    filter: blur(20px);
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   26. GRADIENT BORDER
+   ========================================================================== */
+
+.gradient-border {
+    position: relative;
+    isolation: isolate;
+    border-color: transparent !important;
+}
+
+.gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    padding: 1px;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(124, 92, 255, 0.5),
+            rgba(255, 255, 255, 0.08) 42%,
+            rgba(46, 211, 183, 0.38)
+        );
+
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+
+    mask-composite: exclude;
+
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+
+    -webkit-mask-composite: xor;
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   27. PREMIUM DIVIDER
+   ========================================================================== */
+
+.premium-divider {
+    position: relative;
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.08) 20%,
+            rgba(124, 92, 255, 0.18) 50%,
+            rgba(255, 255, 255, 0.08) 80%,
+            transparent
+        );
+}
+
+.premium-divider::after {
+    content: "";
+
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    width: 5px;
+    height: 5px;
+
+    border-radius: 50%;
+
+    transform: translate(-50%, -50%);
+
+    background: rgba(124, 92, 255, 0.65);
+
+    box-shadow:
+        0 0 12px rgba(124, 92, 255, 0.4);
+}
+
+
+/* ==========================================================================
+   28. TEXT GLOW
+   ========================================================================== */
+
+.text-glow {
+    text-shadow:
+        0 0 22px rgba(124, 92, 255, 0.16);
+}
+
+.text-glow--cyan {
+    text-shadow:
+        0 0 22px rgba(46, 211, 183, 0.14);
+}
+
+
+/* ==========================================================================
+   29. GRADIENT TEXT
+   ========================================================================== */
+
+.gradient-text {
+    background:
+        linear-gradient(
+            110deg,
+            #ffffff 5%,
+            rgba(255, 255, 255, 0.92) 30%,
+            rgba(164, 145, 255, 0.96) 62%,
+            rgba(91, 226, 199, 0.96) 100%
+        );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+
+/* ==========================================================================
+   30. FOCUS LIGHT
+   ========================================================================== */
+
+.focus-light:focus-within {
+    box-shadow:
+        0 0 0 1px rgba(124, 92, 255, 0.28),
+        0 0 0 4px rgba(124, 92, 255, 0.055),
+        0 0 32px rgba(124, 92, 255, 0.07);
+}
+
+
+/* ==========================================================================
+   31. BUTTON LIGHT
+   ========================================================================== */
+
+.button-light {
+    position: relative;
+    overflow: hidden;
+}
+
+.button-light::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background:
+        linear-gradient(
+            110deg,
+            transparent 25%,
+            rgba(255, 255, 255, 0.12) 48%,
+            transparent 70%
+        );
+
+    transform: translateX(-120%);
+
+    pointer-events: none;
+}
+
+.button-light:hover::after {
+    transform: translateX(120%);
+    transition:
+        transform 650ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+
+/* ==========================================================================
+   32. SEARCH AI EFFECT
+   ========================================================================== */
+
+.search-ai-effect {
+    position: relative;
+}
+
+.search-ai-effect::before {
+    content: "";
+
+    position: absolute;
+    inset: -1px;
+
+    border-radius: inherit;
+
+    background:
+        conic-gradient(
+            from 180deg,
+            transparent 0deg,
+            rgba(124, 92, 255, 0.16) 80deg,
+            transparent 150deg,
+            rgba(46, 211, 183, 0.13) 235deg,
+            transparent 310deg
+        );
+
+    opacity: 0;
+
+    pointer-events: none;
+}
+
+.search-ai-effect:focus-within::before {
+    opacity: 1;
+    animation:
+        memoryos-gradient-rotate 4s linear infinite;
+}
+
+
+/* ==========================================================================
+   33. RESULT CONFIDENCE EFFECT
+   ========================================================================== */
+
+.confidence-glow {
+    position: relative;
+}
+
+.confidence-glow[data-confidence="high"] {
+    box-shadow:
+        inset 0 0 0 1px rgba(46, 211, 183, 0.06),
+        0 12px 42px rgba(46, 211, 183, 0.035);
+}
+
+.confidence-glow[data-confidence="medium"] {
+    box-shadow:
+        inset 0 0 0 1px rgba(245, 181, 69, 0.05),
+        0 12px 42px rgba(245, 181, 69, 0.025);
+}
+
+.confidence-glow[data-confidence="low"] {
+    box-shadow:
+        inset 0 0 0 1px rgba(244, 95, 95, 0.045),
+        0 12px 42px rgba(244, 95, 95, 0.02);
+}
+
+
+/* ==========================================================================
+   34. MEMORY IMAGE DEPTH
+   ========================================================================== */
+
+.memory-image-depth {
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+.memory-image-depth::before {
+    content: "";
+
+    position: absolute;
+    inset: 8px;
+
+    z-index: -1;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(124, 92, 255, 0.16),
+            rgba(46, 211, 183, 0.08)
+        );
+
+    filter: blur(20px);
+
+    opacity: 0.45;
+
+    transform: translateY(10px) scale(0.94);
+}
+
+
+/* ==========================================================================
+   35. DASHBOARD AMBIENT LIGHT
+   ========================================================================== */
+
+.dashboard-effects {
+    position: relative;
+    isolation: isolate;
+}
+
+.dashboard-effects::before {
+    content: "";
+
+    position: absolute;
+
+    width: 600px;
+    height: 420px;
+
+    top: -180px;
+    right: -120px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(124, 92, 255, 0.08),
+            transparent 68%
+        );
+
+    filter: blur(40px);
+
+    pointer-events: none;
+
+    z-index: -1;
+}
+
+
+/* ==========================================================================
+   36. UPLOAD DROPZONE ATMOSPHERE
+   ========================================================================== */
+
+.upload-atmosphere {
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-atmosphere::before {
+    content: "";
+
+    position: absolute;
+    width: 320px;
+    height: 320px;
+
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(124, 92, 255, 0.1),
+            rgba(46, 211, 183, 0.035) 36%,
+            transparent 70%
+        );
+
+    filter: blur(25px);
+
+    opacity: 0.7;
+
+    pointer-events: none;
+}
+
+.upload-atmosphere.is-dragging::before {
+    opacity: 1;
+    transform:
+        translate(-50%, -50%)
+        scale(1.12);
+}
+
+
+/* ==========================================================================
+   37. DRAWER ATMOSPHERE
+   ========================================================================== */
+
+.drawer-atmosphere {
+    position: relative;
+    overflow: hidden;
+}
+
+.drawer-atmosphere::before {
+    content: "";
+
+    position: absolute;
+
+    width: 420px;
+    height: 420px;
+
+    top: -160px;
+    right: -180px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(124, 92, 255, 0.08),
+            transparent 70%
+        );
+
+    filter: blur(30px);
+
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   38. BACKDROP DEPTH
+   ========================================================================== */
+
+.backdrop-depth {
+    position: relative;
+}
+
+.backdrop-depth::before {
+    content: "";
+
+    position: fixed;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            circle at 50% 30%,
+            rgba(124, 92, 255, 0.035),
+            transparent 42%
+        );
+
+    pointer-events: none;
+
+    z-index: -1;
+}
+
+
+/* ==========================================================================
+   39. PREMIUM SHADOW STACK
+   ========================================================================== */
+
+.depth-shadow {
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        0 12px 28px rgba(0, 0, 0, 0.12),
+        0 30px 70px rgba(0, 0, 0, 0.12);
+}
+
+.depth-shadow--floating {
+    box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.1),
+        0 20px 45px rgba(0, 0, 0, 0.15),
+        0 50px 100px rgba(0, 0, 0, 0.16);
+}
+
+
+/* ==========================================================================
+   40. ELEVATED SURFACE
+   ========================================================================== */
+
+.elevated-surface {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
+        0 1px 1px rgba(0, 0, 0, 0.12),
+        0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+
+/* ==========================================================================
+   41. COLOR ATMOSPHERE HELPERS
+   ========================================================================== */
+
+.atmosphere-purple {
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(124, 92, 255, 0.09),
+            transparent 70%
+        );
+}
+
+.atmosphere-cyan {
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(46, 211, 183, 0.075),
+            transparent 70%
+        );
+}
+
+.atmosphere-mixed {
+    background:
+        radial-gradient(
+            circle at 30% 35%,
+            rgba(124, 92, 255, 0.075),
+            transparent 42%
+        ),
+        radial-gradient(
+            circle at 72% 65%,
+            rgba(46, 211, 183, 0.055),
+            transparent 42%
+        );
+}
+
+
+/* ==========================================================================
+   42. REDUCED INTENSITY
+   ========================================================================== */
+
+.effect-subtle {
+    opacity: 0.55;
+}
+
+.effect-muted {
+    opacity: 0.35;
+}
+
+.effect-disabled {
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   43. PRINT SAFETY
+   ========================================================================== */
+
+@media print {
+    .grid-effect,
+    .hero-glow,
+    .floating-orb,
+    .glow-orb,
+    .noise-effect::after,
+    .scanlines::after,
+    .cinematic-vignette::after,
+    .ambient-background::before,
+    .ambient-background::after,
+    .dashboard-effects::before,
+    .drawer-atmosphere::before,
+    .upload-atmosphere::before {
+        display: none !important;
+    }
+
+    .glass-effect,
+    .glass-effect--strong {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        box-shadow: none;
+    }
+}
+
+
+/* ==========================================================================
+   44. EFFECT KEYFRAMES
+   ========================================================================== */
+
+/*
+   These keyframes are intentionally kept here as fallbacks for effect
+   components. The main animation system remains in animations.css.
+*/
+
+@keyframes memoryos-ai-scan {
+    0% {
+        top: -5%;
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        top: 105%;
+        opacity: 0;
+    }
+}
+
+@keyframes memoryos-processing-sweep {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    50% {
+        transform: translateX(0%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes memoryos-gradient-rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* ==========================================================================
+   45. PERFORMANCE SAFETY
+   ========================================================================== */
+
+[data-performance="low"] .noise-effect::after,
+[data-performance="low"] .grid-effect,
+[data-performance="low"] .floating-orb,
+[data-performance="low"] .glow-orb {
+    display: none;
+}
+
+[data-performance="low"] .glass-effect,
+[data-performance="low"] .glass-effect--strong {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+
+/* ==========================================================================
+   46. REDUCED MOTION SAFETY
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .image-shine::after,
+    .button-light::after,
+    .search-ai-effect::before,
+    .ai-scan.is-scanning::after,
+    .processing-surface.is-processing::before {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .image-shine:hover::after,
+    .button-light:hover::after {
+        transform: none;
+    }
+}
+
+
+/* ==========================================================================
+   END OF MEMORYOS EFFECTS SYSTEM
+   ========================================================================== */

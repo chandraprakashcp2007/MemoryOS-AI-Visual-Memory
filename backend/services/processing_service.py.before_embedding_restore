@@ -1,0 +1,2207 @@
+﻿"""
+MemoryOS - Processing Service
+=============================
+
+Premium ingestion orchestration layer.
+
+Pipeline
+--------
+
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚     IMAGE     â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+                            â–¼
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚ IMAGE VALIDATEâ”‚
+                    â”‚ + METADATA    â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+              â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+              â”‚                           â”‚
+              â–¼                           â–¼
+       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”             â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+       â”‚     OCR     â”‚             â”‚ GEMINI VISIONâ”‚
+       â”‚  supporting â”‚             â”‚    primary   â”‚
+       â”‚   signal    â”‚             â”‚ visual signalâ”‚
+       â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”˜             â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜
+              â”‚                           â”‚
+              â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+                            â–¼
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚ MEMORY SERVICEâ”‚
+                    â”‚ unified memoryâ”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+                            â–¼
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚   EMBEDDING   â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+                            â–¼
+                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                    â”‚     FAISS     â”‚
+                    â”‚ vector index  â”‚
+                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+
+Responsibilities
+----------------
+
+- Validate image input
+- Extract image metadata
+- Calculate SHA-256 image hash
+- Run OCR
+- Run Gemini Vision
+- Merge OCR + Vision signals
+- Build canonical Memory object
+- Generate embedding
+- Index embedding into vector store
+- Preserve processing errors
+- Support partial failures
+- Avoid duplicate indexing
+- Provide deterministic processing results
+- Provide structured diagnostics
+- Never depend directly on FastAPI
+- Never depend directly on SQLite
+- Keep external AI failures isolated
+- Support upload API and screenshot scanner
+
+Architecture rule
+-----------------
+
+This service orchestrates existing services.
+
+It does NOT own:
+
+- HTTP
+- database transactions
+- API routing
+- frontend logic
+- Gemini configuration
+- FAISS implementation
+- OCR implementation
+- embedding model implementation
+"""
+
+from __future__ import annotations
+
+import hashlib
+import inspect
+import logging
+import mimetypes
+import os
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+from PIL import Image
+
+from backend.services.memory_service import (
+    Memory,
+    MemoryEntity,
+    MemoryImageMetadata,
+    MemoryService,
+    memory_service,
+)
+
+try:
+    from backend.services.vision_service import (
+        VisionAnalysis,
+        VisionService,
+        vision_service,
+    )
+except ImportError:  # pragma: no cover
+    class VisionAnalysis:  # type: ignore[no-redef]
+        """Fallback stub used when the optional vision module is unavailable."""
+
+    VisionService = Any
+    vision_service = None
+
+try:
+    from backend.services.ocr_service import (
+        OCRService,
+        ocr_service,
+    )
+except ImportError:  # pragma: no cover
+    OCRService = Any
+    ocr_service = None
+
+try:
+    from backend.services.embedding_service import (
+    EmbeddingService,
+    get_embedding_service,
+)
+except ImportError:  # pragma: no cover
+    EmbeddingService = Any
+    embedding_service = None
+
+try:
+    from backend.services.vector_store import (
+        VectorStore,
+        vector_store,
+    )
+except ImportError:  # pragma: no cover
+    VectorStore = Any
+    vector_store = None
+
+
+# ============================================================================
+# LOGGER
+# ============================================================================
+
+logger = logging.getLogger("memoryos.processing")
+
+
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
+PROCESSING_SCHEMA_VERSION = "1.0"
+
+DEFAULT_SOURCE = "upload"
+
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
+SUPPORTED_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+SUPPORTED_EXTENSIONS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+}
+
+DEFAULT_MAX_OCR_TEXT = 20_000
+
+DEFAULT_MAX_ERRORS = 30
+
+DEFAULT_EMBEDDING_DIMENSION = 384
+
+
+# ============================================================================
+# EXCEPTIONS
+# ============================================================================
+
+
+class ProcessingServiceError(Exception):
+    """Base processing service exception."""
+
+
+class ProcessingInputError(ProcessingServiceError):
+    """Raised when image input is invalid."""
+
+
+class ProcessingOCRWarning(ProcessingServiceError):
+    """Raised internally for non-fatal OCR failures."""
+
+
+class ProcessingVisionWarning(ProcessingServiceError):
+    """Raised internally for non-fatal vision failures."""
+
+
+class ProcessingEmbeddingError(ProcessingServiceError):
+    """Raised when embedding generation fails."""
+
+
+class ProcessingIndexError(ProcessingServiceError):
+    """Raised when vector indexing fails."""
+
+
+# ============================================================================
+# DATA STRUCTURES
+# ============================================================================
+
+
+@dataclass(slots=True)
+class ImageInfo:
+    """
+    Deterministic image metadata extracted before AI processing.
+    """
+
+    filename: str = ""
+
+    mime_type: str = ""
+
+    extension: str = ""
+
+    width: int | None = None
+
+    height: int | None = None
+
+    file_size_bytes: int = 0
+
+    image_hash: str = ""
+
+    original_path: str | None = None
+
+    thumbnail_path: str | None = None
+
+    format: str = ""
+
+    mode: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "filename": self.filename,
+            "mime_type": self.mime_type,
+            "extension": self.extension,
+            "width": self.width,
+            "height": self.height,
+            "file_size_bytes": self.file_size_bytes,
+            "image_hash": self.image_hash,
+            "original_path": self.original_path,
+            "thumbnail_path": self.thumbnail_path,
+            "format": self.format,
+            "mode": self.mode,
+        }
+
+
+@dataclass(slots=True)
+class ProcessingDiagnostics:
+    """
+    Explainable processing diagnostics.
+
+    Useful for:
+        - debugging
+        - analytics
+        - API responses
+        - hackathon demo
+        - production monitoring
+    """
+
+    started_at: str = ""
+
+    completed_at: str = ""
+
+    duration_ms: float = 0.0
+
+    image_loaded: bool = False
+
+    ocr_attempted: bool = False
+
+    ocr_success: bool = False
+
+    vision_attempted: bool = False
+
+    vision_success: bool = False
+
+    embedding_attempted: bool = False
+
+    embedding_success: bool = False
+
+    vector_index_attempted: bool = False
+
+    vector_index_success: bool = False
+
+    fallback_used: bool = False
+
+    duplicate_detected: bool = False
+
+    error_count: int = 0
+
+    warnings: list[str] = field(default_factory=list)
+
+    errors: list[str] = field(default_factory=list)
+
+    stages: dict[str, float] = field(default_factory=dict)
+
+    def add_warning(self, message: Any) -> None:
+        value = str(message).strip()
+
+        if value and value not in self.warnings:
+            self.warnings.append(value)
+
+    def add_error(self, message: Any) -> None:
+        value = str(message).strip()
+
+        if value and value not in self.errors:
+            self.errors.append(value)
+
+        self.error_count = len(self.errors)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "duration_ms": round(self.duration_ms, 2),
+            "image_loaded": self.image_loaded,
+            "ocr_attempted": self.ocr_attempted,
+            "ocr_success": self.ocr_success,
+            "vision_attempted": self.vision_attempted,
+            "vision_success": self.vision_success,
+            "embedding_attempted": self.embedding_attempted,
+            "embedding_success": self.embedding_success,
+            "vector_index_attempted": self.vector_index_attempted,
+            "vector_index_success": self.vector_index_success,
+            "fallback_used": self.fallback_used,
+            "duplicate_detected": self.duplicate_detected,
+            "error_count": self.error_count,
+            "warnings": list(self.warnings),
+            "errors": list(self.errors),
+            "stages": dict(self.stages),
+        }
+
+
+@dataclass(slots=True)
+class ProcessingResult:
+    """
+    Complete result of processing one image.
+    """
+
+    success: bool
+
+    memory: Memory | None
+
+    image_info: ImageInfo
+
+    ocr_text: str
+
+    vision: VisionAnalysis | None
+
+    embedding: Any = None
+
+    indexed: bool = False
+
+    diagnostics: ProcessingDiagnostics = field(default_factory=ProcessingDiagnostics)
+
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "memory": (self.memory.to_dict() if self.memory is not None else None),
+            "image_info": self.image_info.to_dict(),
+            "ocr_text": self.ocr_text,
+            "vision": (
+                _vision_to_dict(self.vision) if self.vision is not None else None
+            ),
+            "indexed": self.indexed,
+            "diagnostics": self.diagnostics.to_dict(),
+            "error": self.error,
+        }
+
+
+# ============================================================================
+# TIME HELPERS
+# ============================================================================
+
+
+def _utc_now_iso() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _elapsed_ms(start: float) -> float:
+    return round(
+        (time.perf_counter() - start) * 1000,
+        2,
+    )
+
+
+# ============================================================================
+# GENERIC HELPERS
+# ============================================================================
+
+
+def _clean_string(value: Any) -> str:
+    if value is None:
+        return ""
+
+    if isinstance(value, bytes):
+        value = value.decode(
+            "utf-8",
+            errors="replace",
+        )
+
+    return (
+        str(value)
+        .replace(
+            "\x00",
+            " ",
+        )
+        .strip()
+    )
+
+
+def _safe_float(
+    value: Any,
+    default: float = 0.0,
+) -> float:
+    try:
+        return float(value)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return default
+
+
+def _safe_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+
+    if isinstance(
+        value,
+        (list, tuple, set),
+    ):
+        return list(value)
+
+    return []
+
+
+def _vision_to_dict(
+    vision: Any,
+) -> dict[str, Any]:
+    """
+    Convert VisionAnalysis or compatible objects into a dictionary.
+    """
+
+    if vision is None:
+        return {}
+
+    if hasattr(
+        vision,
+        "__dict__",
+    ):
+        return dict(vision.__dict__)
+
+    fields = (
+        "success",
+        "title",
+        "summary",
+        "category",
+        "subcategory",
+        "entities",
+        "people",
+        "organizations",
+        "locations",
+        "products",
+        "dates",
+        "prices",
+        "emails",
+        "phone_numbers",
+        "urls",
+        "intent",
+        "keywords",
+        "importance",
+        "visual_description",
+        "actionable_items",
+        "model",
+        "fallback",
+        "error",
+        "metadata",
+    )
+
+    result: dict[str, Any] = {}
+
+    for field_name in fields:
+        if hasattr(
+            vision,
+            field_name,
+        ):
+            value = getattr(
+                vision,
+                field_name,
+            )
+
+            if isinstance(
+                value,
+                tuple,
+            ):
+                value = list(value)
+
+            result[field_name] = value
+
+    return result
+
+
+# ============================================================================
+# FILE / BYTES UTILITIES
+# ============================================================================
+
+
+def _read_source_bytes(
+    source: Any,
+) -> bytes:
+    """
+    Read supported source types into bytes.
+
+    Supported:
+        - bytes
+        - bytearray
+        - pathlib.Path
+        - string path
+        - file-like object
+    """
+
+    if source is None:
+        raise ProcessingInputError("Image source cannot be None.")
+
+    if isinstance(
+        source,
+        bytes,
+    ):
+        return source
+
+    if isinstance(
+        source,
+        bytearray,
+    ):
+        return bytes(source)
+
+    if isinstance(
+        source,
+        Path,
+    ):
+        try:
+            return source.read_bytes()
+        except OSError as exc:
+            raise ProcessingInputError(f"Unable to read image file: {exc}") from exc
+
+    if isinstance(
+        source,
+        str,
+    ):
+        path = Path(source)
+
+        try:
+            return path.read_bytes()
+        except OSError as exc:
+            raise ProcessingInputError(f"Unable to read image file: {exc}") from exc
+
+    if hasattr(
+        source,
+        "read",
+    ):
+        try:
+            current_position = None
+
+            if hasattr(
+                source,
+                "tell",
+            ):
+                try:
+                    current_position = source.tell()
+                except Exception:
+                    current_position = None
+
+            data = source.read()
+
+            if current_position is not None and hasattr(
+                source,
+                "seek",
+            ):
+                try:
+                    source.seek(current_position)
+                except Exception:
+                    pass
+
+            if isinstance(
+                data,
+                bytes,
+            ):
+                return data
+
+            if isinstance(
+                data,
+                bytearray,
+            ):
+                return bytes(data)
+
+        except Exception as exc:
+            raise ProcessingInputError(f"Unable to read image stream: {exc}") from exc
+
+    raise ProcessingInputError(
+        f"Unsupported image source type: {type(source).__name__}"
+    )
+
+
+def _source_filename(
+    source: Any,
+) -> str:
+    if isinstance(
+        source,
+        Path,
+    ):
+        return source.name
+
+    if isinstance(
+        source,
+        str,
+    ):
+        return Path(source).name
+
+    name = getattr(
+        source,
+        "filename",
+        None,
+    )
+
+    if name:
+        return Path(str(name)).name
+
+    return "memory_image"
+
+
+def _detect_mime(
+    filename: str,
+    image: Image.Image,
+) -> str:
+    """
+    Detect MIME type using both filename and PIL format.
+    """
+
+    guessed, _ = mimetypes.guess_type(filename)
+
+    if guessed in SUPPORTED_MIME_TYPES:
+        return guessed
+
+    image_format = str(image.format or "").upper()
+
+    mapping = {
+        "JPEG": "image/jpeg",
+        "JPG": "image/jpeg",
+        "PNG": "image/png",
+        "WEBP": "image/webp",
+    }
+
+    return mapping.get(
+        image_format,
+        "image/jpeg",
+    )
+
+
+def _calculate_sha256(
+    data: bytes,
+) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+# ============================================================================
+# IMAGE VALIDATION
+# ============================================================================
+
+
+def _validate_image(
+    data: bytes,
+    filename: str,
+) -> Image.Image:
+    """
+    Validate image bytes using Pillow.
+
+    This protects downstream services from malformed inputs.
+    """
+
+    if not data:
+        raise ProcessingInputError("Image file is empty.")
+
+    if len(data) > MAX_IMAGE_SIZE_BYTES:
+        raise ProcessingInputError("Image exceeds the 10 MB processing limit.")
+
+    extension = Path(filename).suffix.lower()
+
+    if extension and extension not in SUPPORTED_EXTENSIONS:
+        raise ProcessingInputError(f"Unsupported image extension: {extension}")
+
+    try:
+        from io import BytesIO
+
+        image = Image.open(BytesIO(data))
+
+        image.verify()
+
+        # Re-open after verify because verify() invalidates the image.
+        image = Image.open(BytesIO(data))
+
+        return image
+
+    except Exception as exc:
+        raise ProcessingInputError(f"Invalid or unreadable image: {exc}") from exc
+
+
+# ============================================================================
+# IMAGE METADATA
+# ============================================================================
+
+
+def _build_image_info(
+    *,
+    source: Any,
+    data: bytes,
+    image: Image.Image,
+) -> ImageInfo:
+    filename = _source_filename(source)
+
+    mime_type = _detect_mime(
+        filename,
+        image,
+    )
+
+    extension = Path(filename).suffix.lower()
+
+    return ImageInfo(
+        filename=filename,
+        mime_type=mime_type,
+        extension=extension,
+        width=image.width,
+        height=image.height,
+        file_size_bytes=len(data),
+        image_hash=_calculate_sha256(data),
+        original_path=(
+            str(source)
+            if isinstance(
+                source,
+                (str, Path),
+            )
+            else None
+        ),
+        format=str(image.format or ""),
+        mode=str(image.mode or ""),
+    )
+
+
+# ============================================================================
+# OCR ADAPTER
+# ============================================================================
+
+
+class _OCRAdapter:
+    """
+    Compatibility adapter around the project's OCR service.
+
+    The project has evolved through multiple OCR implementations,
+    so this adapter supports common method names without forcing
+    the orchestration layer to know implementation details.
+    """
+
+    def __init__(
+        self,
+        service: Any,
+    ) -> None:
+        self.service = service
+
+    def extract(
+        self,
+        source: Any,
+    ) -> str:
+        if self.service is None:
+            raise ProcessingOCRWarning("OCR service is unavailable.")
+
+        method_names = (
+            "extract_text",
+            "extract",
+            "ocr",
+            "process",
+            "run",
+        )
+
+        for method_name in method_names:
+            method = getattr(
+                self.service,
+                method_name,
+                None,
+            )
+
+            if not callable(method):
+                continue
+
+            try:
+                result = method(source)
+
+            except TypeError:
+                continue
+
+            return self._normalize_result(result)
+
+        raise ProcessingOCRWarning("No compatible OCR extraction method found.")
+
+    @staticmethod
+    def _normalize_result(
+        result: Any,
+    ) -> str:
+        if result is None:
+            return ""
+
+        if isinstance(
+            result,
+            str,
+        ):
+            return result.strip()
+
+        if isinstance(
+            result,
+            Mapping,
+        ):
+            for key in (
+                "text",
+                "raw_text",
+                "cleaned_text",
+                "ocr_text",
+            ):
+                if key in result:
+                    return _clean_string(result[key])
+
+        for attribute in (
+            "text",
+            "raw_text",
+            "cleaned_text",
+            "ocr_text",
+        ):
+            value = getattr(
+                result,
+                attribute,
+                None,
+            )
+
+            if value:
+                return _clean_string(value)
+
+        return _clean_string(result)
+
+
+# ============================================================================
+# EMBEDDING ADAPTER
+# ============================================================================
+
+
+class _EmbeddingAdapter:
+    """
+    Compatibility adapter for the existing embedding service.
+    """
+
+    def __init__(
+        self,
+        service: Any,
+    ) -> None:
+        self.service = service
+
+    @property
+    def dimension(self) -> int:
+        """
+        Return the embedding vector dimension from the
+        underlying embedding service.
+        """
+
+        if self.service is None:
+            raise ProcessingEmbeddingError(
+                "Embedding service is unavailable."
+            )
+
+        dimension = getattr(
+            self.service,
+            "dimension",
+            None,
+        )
+
+        if dimension is None:
+            raise ProcessingEmbeddingError(
+                "Embedding service does not expose a dimension."
+            )
+
+        try:
+            dimension = int(dimension)
+        except (TypeError, ValueError) as exc:
+            raise ProcessingEmbeddingError(
+                "Embedding dimension is invalid."
+            ) from exc
+
+        if dimension <= 0:
+            raise ProcessingEmbeddingError(
+                "Embedding dimension must be greater than zero."
+            )
+
+        return dimension
+
+    def generate(
+        self,
+        text: str,
+    ) -> Any:
+        if self.service is None:
+            raise ProcessingEmbeddingError("Embedding service is unavailable.")
+
+        method_names = (
+            "embed",
+            "embed_text",
+            "encode",
+            "generate_embedding",
+            "create_embedding",
+        )
+
+        for method_name in method_names:
+            method = getattr(
+                self.service,
+                method_name,
+                None,
+            )
+
+            if not callable(method):
+                continue
+
+            try:
+                result = method(text)
+            except TypeError:
+                continue
+
+            if result is None:
+                raise ProcessingEmbeddingError("Embedding service returned no vector.")
+
+            return result
+
+        raise ProcessingEmbeddingError("No compatible embedding method found.")
+
+
+# ============================================================================
+# VECTOR STORE ADAPTER
+# ============================================================================
+
+
+class _VectorStoreAdapter:
+    """
+    Compatibility adapter for FAISS/vector store implementations.
+
+    The adapter deliberately keeps FAISS details outside the processing
+    orchestration layer.
+    """
+
+    def __init__(
+        self,
+        store: Any,
+    ) -> None:
+        self.store = store
+
+    def index(
+        self,
+        *,
+        memory: Memory,
+        embedding: Any,
+    ) -> bool:
+        if self.store is None:
+            raise ProcessingIndexError("Vector store is unavailable.")
+
+        candidates = (
+            "add",
+            "add_vector",
+            "add_embedding",
+            "index",
+            "upsert",
+            "insert",
+        )
+
+        for method_name in candidates:
+            method = getattr(
+                self.store,
+                method_name,
+                None,
+            )
+
+            if not callable(method):
+                continue
+
+            attempts = (
+                {
+                    "memory": memory,
+                    "embedding": embedding,
+                },
+                {
+                    "vector": embedding,
+                    "memory": memory,
+                },
+                {
+                    "embedding": embedding,
+                    "memory_id": memory.id,
+                },
+                {
+                    "vector": embedding,
+                    "memory_id": memory.id,
+                },
+                {
+                    "embedding": embedding,
+                    "id": memory.id,
+                },
+                {
+                    "vector": embedding,
+                    "id": memory.id,
+                },
+            )
+
+            for kwargs in attempts:
+                try:
+                    result = method(**kwargs)
+
+                    if result is False:
+                        continue
+
+                    return True
+
+                except TypeError:
+                    continue
+
+                except Exception as exc:
+                    raise ProcessingIndexError(
+                        f"Vector indexing failed: {exc}"
+                    ) from exc
+
+        raise ProcessingIndexError("No compatible vector-store indexing method found.")
+
+
+# ============================================================================
+# PROCESSING SERVICE
+# ============================================================================
+
+
+class ProcessingService:
+    """
+    Premium MemoryOS ingestion orchestrator.
+
+    The service intentionally coordinates existing components instead of
+    reimplementing them.
+
+    Main public operation:
+
+        process(source)
+
+    Example:
+
+        result = processing_service.process(
+            "screenshot.png"
+        )
+
+        memory = result.memory
+    """
+
+    def __init__(
+        self,
+        *,
+        memory_service_instance: MemoryService | None = None,
+        vision_service_instance: Any = None,
+        ocr_service_instance: Any = None,
+        embedding_service_instance: Any = None,
+        vector_store_instance: Any = None,
+        max_ocr_text: int = DEFAULT_MAX_OCR_TEXT,
+        max_errors: int = DEFAULT_MAX_ERRORS,
+    ) -> None:
+
+        self.memory_service = memory_service_instance or memory_service
+
+        self.vision_service = (
+            vision_service_instance
+            if vision_service_instance is not None
+            else vision_service
+        )
+
+        self.ocr = _OCRAdapter(
+            ocr_service_instance if ocr_service_instance is not None else ocr_service
+        )
+
+        self.embedding = _EmbeddingAdapter(
+            embedding_service_instance
+            if embedding_service_instance is not None
+            else get_embedding_service()
+        )
+
+        self.vector_store = _VectorStoreAdapter(
+            vector_store_instance if vector_store_instance is not None else vector_store
+        )
+
+        self.max_ocr_text = max(
+            100,
+            int(max_ocr_text),
+        )
+
+        self.max_errors = max(
+            1,
+            int(max_errors),
+        )
+
+    # ========================================================================
+    # VISION
+    # ========================================================================
+
+    def _run_vision(
+        self,
+        source: Any,
+        ocr_text: str,
+    ) -> VisionAnalysis | None: # type: ignore
+        """
+        Run Gemini Vision.
+
+        OCR is passed as supporting context only.
+        """
+
+        if self.vision_service is None:
+            raise ProcessingVisionWarning("Vision service is unavailable.")
+
+        # Prefer OCR-aware method because it preserves the architecture:
+        #
+        # Image â†’ Vision
+        #          â†‘
+        #       OCR support
+        #
+        method = getattr(
+            self.vision_service,
+            "analyze_with_ocr",
+            None,
+        )
+
+        if callable(method):
+            return method(
+                source,
+                ocr_text,
+                allow_fallback=True,
+            )
+
+        method = getattr(
+            self.vision_service,
+            "analyze",
+            None,
+        )
+
+        if callable(method):
+            return method(
+                source,
+                allow_fallback=True,
+            )
+
+        raise ProcessingVisionWarning("No compatible Vision analysis method found.")
+
+    # ========================================================================
+    # VISION SIGNALS
+    # ========================================================================
+
+    @staticmethod
+    def _vision_value(
+        vision: Any,
+        name: str,
+        default: Any = None,
+    ) -> Any:
+        if vision is None:
+            return default
+
+        return getattr(
+            vision,
+            name,
+            default,
+        )
+
+    @staticmethod
+    def _vision_entities(
+        vision: Any,
+    ) -> list[MemoryEntity]:
+        """
+        Convert VisionAnalysis structured fields into MemoryEntity objects.
+
+        Vision service returns multiple semantic collections.
+        MemoryService expects a unified entity representation.
+        """
+
+        if vision is None:
+            return []
+
+        result: list[MemoryEntity] = []
+
+        def add_values(
+            values: Any,
+            entity_type: str,
+        ) -> None:
+
+            for value in _safe_list(values):
+
+                text = _clean_string(value)
+
+                if not text:
+                    continue
+
+                result.append(
+                    MemoryEntity(
+                        text=text,
+                        entity_type=entity_type,
+                        confidence=0.90,
+                        source="gemini_vision",
+                    )
+                )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "people",
+                (),
+            ),
+            "PERSON",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "organizations",
+                (),
+            ),
+            "ORGANIZATION",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "locations",
+                (),
+            ),
+            "LOCATION",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "products",
+                (),
+            ),
+            "PRODUCT",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "dates",
+                (),
+            ),
+            "DATE",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "prices",
+                (),
+            ),
+            "PRICE",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "emails",
+                (),
+            ),
+            "EMAIL",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "phone_numbers",
+                (),
+            ),
+            "PHONE",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "urls",
+                (),
+            ),
+            "URL",
+        )
+
+        add_values(
+            ProcessingService._vision_value(
+                vision,
+                "entities",
+                (),
+            ),
+            "ENTITY",
+        )
+
+        return result
+
+    # ========================================================================
+    # CATEGORY CONFIDENCE
+    # ========================================================================
+
+    @staticmethod
+    def _vision_confidence(
+        vision: Any,
+    ) -> float:
+        """
+        Gemini Vision does not currently expose an explicit confidence field.
+
+        Therefore this derives a conservative signal from whether Gemini
+        successfully produced meaningful structured visual analysis.
+        """
+
+        if vision is None:
+            return 0.0
+
+        success = bool(
+            getattr(
+                vision,
+                "success",
+                False,
+            )
+        )
+
+        fallback = bool(
+            getattr(
+                vision,
+                "fallback",
+                False,
+            )
+        )
+
+        category = _clean_string(
+            getattr(
+                vision,
+                "category",
+                "",
+            )
+        )
+
+        description = _clean_string(
+            getattr(
+                vision,
+                "visual_description",
+                "",
+            )
+        )
+
+        if not success or fallback:
+            return 0.0
+
+        score = 0.50
+
+        if category:
+            score += 0.20
+
+        if description:
+            score += 0.20
+
+        if getattr(
+            vision,
+            "products",
+            (),
+        ) or getattr(
+            vision,
+            "entities",
+            (),
+        ):
+            score += 0.10
+
+        return min(
+            score,
+            1.0,
+        )
+
+    # ========================================================================
+    # OCR QUALITY
+    # ========================================================================
+
+    @staticmethod
+    def _estimate_ocr_quality(
+        text: str,
+    ) -> float:
+        """
+        Lightweight deterministic OCR quality estimate.
+
+        This is deliberately not a language model.
+
+        Signals:
+            - text presence
+            - length
+            - printable character ratio
+            - excessive noise
+        """
+
+        if not text:
+            return 0.0
+
+        value = text.strip()
+
+        if not value:
+            return 0.0
+
+        length_score = min(
+            len(value) / 100.0,
+            1.0,
+        )
+
+        printable = sum(1 for character in value if character.isprintable())
+
+        printable_ratio = printable / max(
+            len(value),
+            1,
+        )
+
+        noise = len(
+            [
+                token
+                for token in value.split()
+                if len(token) == 1 and not token.isalnum()
+            ]
+        )
+
+        noise_penalty = min(
+            noise
+            / max(
+                len(value.split()),
+                1,
+            ),
+            0.5,
+        )
+
+        score = 0.45 * length_score + 0.55 * printable_ratio - noise_penalty
+
+        return max(
+            0.0,
+            min(
+                1.0,
+                score,
+            ),
+        )
+
+    # ========================================================================
+    # MEMORY CONSTRUCTION
+    # ========================================================================
+
+    def _build_memory(
+        self,
+        *,
+        source: Any,
+        image_info: ImageInfo,
+        ocr_text: str,
+        vision: Any,
+        source_name: str,
+        metadata: Mapping[str, Any] | None,
+        processing_errors: Sequence[str],
+    ) -> Memory:
+        """
+        Merge all signals into the canonical Memory representation.
+        """
+
+        vision_title = self._vision_value(
+            vision,
+            "title",
+            "",
+        )
+
+        vision_summary = self._vision_value(
+            vision,
+            "summary",
+            "",
+        )
+
+        vision_category = self._vision_value(
+            vision,
+            "category",
+            None,
+        )
+
+        vision_intent = self._vision_value(
+            vision,
+            "intent",
+            None,
+        )
+
+        vision_keywords = self._vision_value(
+            vision,
+            "keywords",
+            (),
+        )
+
+        vision_subcategory = self._vision_value(
+            vision,
+            "subcategory",
+            "",
+        )
+
+        visual_description = self._vision_value(
+            vision,
+            "visual_description",
+            "",
+        )
+
+        vision_entities = self._vision_entities(vision)
+
+        # --------------------------------------------------------------------
+        # AI analysis snapshot
+        # --------------------------------------------------------------------
+
+        ai_analysis: dict[str, Any] = {}
+
+        if vision is not None:
+            ai_analysis = _vision_to_dict(vision)
+
+            # raw_response can be very large and may contain unnecessary
+            # data in database records. Keep it out of the canonical
+            # analysis payload.
+            ai_analysis.pop(
+                "raw_response",
+                None,
+            )
+
+        # --------------------------------------------------------------------
+        # Searchable metadata
+        # --------------------------------------------------------------------
+
+        final_metadata = dict(metadata or {})
+
+        final_metadata.update(
+            {
+                "processing_schema_version": PROCESSING_SCHEMA_VERSION,
+                "source_name": source_name,
+                "image_hash": image_info.image_hash,
+                "image_width": image_info.width,
+                "image_height": image_info.height,
+                "image_size_bytes": image_info.file_size_bytes,
+                "image_mime_type": image_info.mime_type,
+                "ocr_quality": self._estimate_ocr_quality(ocr_text),
+                "vision_available": vision is not None,
+                "vision_fallback": bool(
+                    self._vision_value(
+                        vision,
+                        "fallback",
+                        False,
+                    )
+                ),
+            }
+        )
+
+        if vision_subcategory:
+            final_metadata["visual_subcategory"] = _clean_string(vision_subcategory)
+
+        if visual_description:
+            final_metadata["visual_description"] = _clean_string(visual_description)
+
+        if vision_summary:
+            final_metadata["visual_summary"] = _clean_string(vision_summary)
+
+        # --------------------------------------------------------------------
+        # Image metadata
+        # --------------------------------------------------------------------
+
+        image_metadata = MemoryImageMetadata(
+            filename=image_info.filename,
+            mime_type=image_info.mime_type,
+            width=image_info.width,
+            height=image_info.height,
+            file_size_bytes=image_info.file_size_bytes,
+            image_hash=image_info.image_hash,
+            thumbnail_path=image_info.thumbnail_path,
+            original_path=image_info.original_path,
+        )
+
+        # --------------------------------------------------------------------
+        # Build canonical memory
+        # --------------------------------------------------------------------
+
+        memory = self.memory_service.build_memory(
+            raw_text=ocr_text,
+            cleaned_text=ocr_text,
+            title=vision_title,
+            category=vision_category,
+            intent=vision_intent,
+            entities=vision_entities,
+            classification_confidence=self._vision_confidence(vision),
+            intent_confidence=(
+                0.85
+                if vision
+                and self._vision_value(
+                    vision,
+                    "intent",
+                    "",
+                )
+                and self._vision_value(
+                    vision,
+                    "intent",
+                    "unknown",
+                )
+                != "unknown"
+                else 0.0
+            ),
+            vision_confidence=self._vision_confidence(vision),
+            ocr_quality=self._estimate_ocr_quality(ocr_text),
+            source=source_name,
+            image=image_metadata,
+            image_hash=image_info.image_hash,
+            ai_analysis=ai_analysis,
+            metadata=final_metadata,
+            tags=vision_keywords,
+            processing_errors=processing_errors,
+        )
+
+        return memory
+
+    # ========================================================================
+    # EMBEDDING
+    # ========================================================================
+
+    def _generate_embedding(
+        self,
+        memory: Memory,
+    ) -> Any:
+        """
+        Generate embedding from canonical embedding_text.
+
+        The embedding service receives MemoryService's semantic representation,
+        not raw OCR alone.
+        """
+
+        if not memory.embedding_text:
+            raise ProcessingEmbeddingError("Memory has no embedding text.")
+
+        return self.embedding.generate(memory.embedding_text)
+
+    # ========================================================================
+    # INDEX
+    # ========================================================================
+
+    def _index_memory(
+        self,
+        *,
+        memory: Memory,
+        embedding: Any,
+    ) -> bool:
+        return self.vector_store.index(
+            memory=memory,
+            embedding=embedding,
+        )
+
+    # ========================================================================
+    # MAIN PROCESS
+    # ========================================================================
+
+    def process(
+        self,
+        source: Any,
+        *,
+        source_name: str = DEFAULT_SOURCE,
+        metadata: Mapping[str, Any] | None = None,
+        index: bool = True,
+        allow_partial_success: bool = True,
+    ) -> ProcessingResult:
+        """
+        Process one image through the complete MemoryOS pipeline.
+
+        Parameters
+        ----------
+        source:
+            Image path, bytes, Path, or file-like object.
+
+        source_name:
+            Logical origin, e.g.
+
+                upload
+                screenshot_scanner
+                auto_capture
+
+        metadata:
+            Optional caller-provided metadata.
+
+        index:
+            Whether to generate embedding and add the memory to FAISS.
+
+        allow_partial_success:
+            When True, OCR/Vision/embedding/index failures are recorded
+            instead of destroying the entire processing operation.
+        """
+
+        started = time.perf_counter()
+
+        diagnostics = ProcessingDiagnostics(started_at=_utc_now_iso())
+
+        errors: list[str] = []
+
+        image_info = ImageInfo()
+
+        ocr_text = ""
+
+        vision = None
+
+        embedding = None
+
+        memory: Memory | None = None
+
+        indexed = False
+
+        try:
+
+            # =================================================================
+            # STAGE 1 â€” READ IMAGE
+            # =================================================================
+
+            stage_start = time.perf_counter()
+
+            data = _read_source_bytes(source)
+
+            filename = _source_filename(source)
+
+            image = _validate_image(
+                data,
+                filename,
+            )
+
+            diagnostics.stages["image_validation"] = _elapsed_ms(stage_start)
+
+            diagnostics.image_loaded = True
+
+            try:
+
+                image_info = _build_image_info(
+                    source=source,
+                    data=data,
+                    image=image,
+                )
+
+            finally:
+
+                try:
+                    image.close()
+                except Exception:
+                    pass
+
+            # =================================================================
+            # STAGE 2 â€” OCR
+            # =================================================================
+
+            stage_start = time.perf_counter()
+
+            diagnostics.ocr_attempted = True
+
+            try:
+
+                ocr_text = self.ocr.extract(source)
+
+                ocr_text = _clean_string(ocr_text)[: self.max_ocr_text]
+
+                diagnostics.ocr_success = True
+
+            except Exception as exc:
+
+                message = f"OCR processing failed: {exc}"
+
+                diagnostics.add_warning(message)
+
+                errors.append(message)
+
+                ocr_text = ""
+
+                if not allow_partial_success:
+                    raise
+
+            diagnostics.stages["ocr"] = _elapsed_ms(stage_start)
+
+            # =================================================================
+            # STAGE 3 â€” GEMINI VISION
+            # =================================================================
+
+            stage_start = time.perf_counter()
+
+            diagnostics.vision_attempted = True
+
+            try:
+
+                vision = self._run_vision(
+                    source,
+                    ocr_text,
+                )
+
+                diagnostics.vision_success = bool(
+                    vision
+                    and getattr(
+                        vision,
+                        "success",
+                        False,
+                    )
+                    and not getattr(
+                        vision,
+                        "fallback",
+                        False,
+                    )
+                )
+
+                if vision is not None and getattr(
+                    vision,
+                    "fallback",
+                    False,
+                ):
+                    diagnostics.fallback_used = True
+
+                    vision_error = getattr(
+                        vision,
+                        "error",
+                        None,
+                    )
+
+                    if vision_error:
+                        diagnostics.add_warning(f"Vision fallback: {vision_error}")
+
+            except Exception as exc:
+
+                message = f"Vision processing failed: {exc}"
+
+                diagnostics.add_warning(message)
+
+                errors.append(message)
+
+                vision = None
+
+                if not allow_partial_success:
+                    raise
+
+            diagnostics.stages["vision"] = _elapsed_ms(stage_start)
+
+            # =================================================================
+            # STAGE 4 â€” BUILD MEMORY
+            # =================================================================
+
+            stage_start = time.perf_counter()
+
+            memory = self._build_memory(
+                source=source,
+                image_info=image_info,
+                ocr_text=ocr_text,
+                vision=vision,
+                source_name=source_name,
+                metadata=metadata,
+                processing_errors=errors,
+            )
+
+            diagnostics.stages["memory"] = _elapsed_ms(stage_start)
+
+            # =================================================================
+            # STAGE 5 â€” EMBEDDING
+            # =================================================================
+
+            if index:
+
+                stage_start = time.perf_counter()
+
+                diagnostics.embedding_attempted = True
+
+                try:
+
+                    embedding = self._generate_embedding(memory)
+
+                    diagnostics.embedding_success = True
+
+                except Exception as exc:
+
+                    message = f"Embedding generation failed: {exc}"
+
+                    diagnostics.add_error(message)
+
+                    errors.append(message)
+
+                    if not allow_partial_success:
+                        raise
+
+                diagnostics.stages["embedding"] = _elapsed_ms(stage_start)
+
+            # =================================================================
+            # STAGE 6 â€” FAISS INDEX
+            # =================================================================
+
+            if index and embedding is not None:
+
+                stage_start = time.perf_counter()
+
+                diagnostics.vector_index_attempted = True
+
+                try:
+
+                    indexed = self._index_memory(
+                        memory=memory,
+                        embedding=embedding,
+                    )
+
+                    diagnostics.vector_index_success = indexed
+
+                except Exception as exc:
+
+                    message = f"Vector indexing failed: {exc}"
+
+                    diagnostics.add_error(message)
+
+                    errors.append(message)
+
+                    indexed = False
+
+                    if not allow_partial_success:
+                        raise
+
+                diagnostics.stages["vector_index"] = _elapsed_ms(stage_start)
+
+            # =================================================================
+            # FINALIZE
+            # =================================================================
+
+            diagnostics.completed_at = _utc_now_iso()
+
+            diagnostics.duration_ms = _elapsed_ms(started)
+
+            diagnostics.error_count = len(diagnostics.errors)
+
+            # If OCR and Vision both failed, processing is not truly useful.
+            if not ocr_text and vision is None:
+                success = False
+
+            else:
+                success = memory is not None
+
+            if memory is not None:
+
+                memory.metadata["processing"] = diagnostics.to_dict()
+
+                memory.metadata["indexed"] = indexed
+
+                memory.metadata["embedding_generated"] = embedding is not None
+
+                memory.processing_errors = list(
+                    dict.fromkeys(
+                        [
+                            *memory.processing_errors,
+                            *errors,
+                        ]
+                    )
+                )[: self.max_errors]
+
+            return ProcessingResult(
+                success=success,
+                memory=memory,
+                image_info=image_info,
+                ocr_text=ocr_text,
+                vision=vision,
+                embedding=embedding,
+                indexed=indexed,
+                diagnostics=diagnostics,
+                error=(errors[0] if errors and not success else None),
+            )
+
+        except ProcessingInputError:
+            raise
+
+        except Exception as exc:
+
+            logger.exception("MemoryOS processing pipeline failed.")
+
+            message = f"Processing pipeline failed: {exc}"
+
+            diagnostics.add_error(message)
+
+            diagnostics.completed_at = _utc_now_iso()
+
+            diagnostics.duration_ms = _elapsed_ms(started)
+
+            if not allow_partial_success:
+                raise ProcessingServiceError(message) from exc
+
+            return ProcessingResult(
+                success=False,
+                memory=memory,
+                image_info=image_info,
+                ocr_text=ocr_text,
+                vision=vision,
+                embedding=embedding,
+                indexed=indexed,
+                diagnostics=diagnostics,
+                error=message,
+            )
+
+    # ========================================================================
+    # BATCH PROCESSING
+    # ========================================================================
+
+    def process_batch(
+        self,
+        sources: Sequence[Any],
+        *,
+        source_name: str = DEFAULT_SOURCE,
+        index: bool = True,
+        allow_partial_success: bool = True,
+    ) -> list[ProcessingResult]:
+        """
+        Process multiple images independently.
+
+        One broken image does not destroy the remaining batch.
+        """
+
+        results: list[ProcessingResult] = []
+
+        for position, source in enumerate(
+            sources,
+            start=1,
+        ):
+
+            logger.info(
+                "Processing MemoryOS image %s/%s",
+                position,
+                len(sources),
+            )
+
+            try:
+
+                result = self.process(
+                    source,
+                    source_name=source_name,
+                    index=index,
+                    allow_partial_success=allow_partial_success,
+                )
+
+            except Exception as exc:
+
+                logger.exception(
+                    "Batch image %s failed.",
+                    position,
+                )
+
+                result = ProcessingResult(
+                    success=False,
+                    memory=None,
+                    image_info=ImageInfo(filename=_source_filename(source)),
+                    ocr_text="",
+                    vision=None,
+                    indexed=False,
+                    error=str(exc),
+                )
+
+            results.append(result)
+
+        return results
+
+    # ========================================================================
+    # SUMMARY
+    # ========================================================================
+
+    @staticmethod
+    def summarize(
+        results: Sequence[ProcessingResult],
+    ) -> dict[str, Any]:
+        """
+        Generate a clean batch processing summary.
+        """
+
+        total = len(results)
+
+        successful = sum(1 for result in results if result.success)
+
+        failed = total - successful
+
+        indexed = sum(1 for result in results if result.indexed)
+
+        ocr_success = sum(1 for result in results if result.diagnostics.ocr_success)
+
+        vision_success = sum(
+            1 for result in results if result.diagnostics.vision_success
+        )
+
+        embedding_success = sum(
+            1 for result in results if result.diagnostics.embedding_success
+        )
+
+        total_duration = sum(result.diagnostics.duration_ms for result in results)
+
+        return {
+            "total": total,
+            "successful": successful,
+            "failed": failed,
+            "indexed": indexed,
+            "ocr_success": ocr_success,
+            "vision_success": vision_success,
+            "embedding_success": embedding_success,
+            "total_duration_ms": round(
+                total_duration,
+                2,
+            ),
+            "average_duration_ms": (
+                round(
+                    total_duration / total,
+                    2,
+                )
+                if total
+                else 0.0
+            ),
+        }
+
+
+# ============================================================================
+# DEFAULT SERVICE
+# ============================================================================
+
+processing_service = ProcessingService()
+
+
+# ============================================================================
+# CONVENIENCE FUNCTIONS
+# ============================================================================
+
+
+def process_image(
+    source: Any,
+    *,
+    source_name: str = DEFAULT_SOURCE,
+    metadata: Mapping[str, Any] | None = None,
+    index: bool = True,
+    allow_partial_success: bool = True,
+) -> ProcessingResult:
+    """
+    Convenience wrapper for processing one image.
+    """
+
+    return processing_service.process(
+        source,
+        source_name=source_name,
+        metadata=metadata,
+        index=index,
+        allow_partial_success=allow_partial_success,
+    )
+
+
+def process_images(
+    sources: Sequence[Any],
+    *,
+    source_name: str = DEFAULT_SOURCE,
+    index: bool = True,
+    allow_partial_success: bool = True,
+) -> list[ProcessingResult]:
+    """
+    Convenience wrapper for batch processing.
+    """
+
+    return processing_service.process_batch(
+        sources,
+        source_name=source_name,
+        index=index,
+        allow_partial_success=allow_partial_success,
+    )
+
+
+# ============================================================================
+# PUBLIC API
+# ============================================================================
+
+__all__ = [
+    "PROCESSING_SCHEMA_VERSION",
+    "ProcessingServiceError",
+    "ProcessingInputError",
+    "ProcessingOCRWarning",
+    "ProcessingVisionWarning",
+    "ProcessingEmbeddingError",
+    "ProcessingIndexError",
+    "ImageInfo",
+    "ProcessingDiagnostics",
+    "ProcessingResult",
+    "ProcessingService",
+    "processing_service",
+    "process_image",
+    "process_images",
+]
+
+
+

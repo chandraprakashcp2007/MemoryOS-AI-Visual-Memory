@@ -1,0 +1,1637 @@
+/*
+================================================================
+ MEMORYOS — PREMIUM COMPONENT SYSTEM
+ components.css
+================================================================
+
+Shared reusable UI components.
+
+Depends on:
+    variables.css
+    reset.css
+    base.css
+    layout.css
+
+Component-specific files later:
+    cards.css
+    search.css
+    upload.css
+    dashboard.css
+    drawer.css
+    panels.css
+    animations.css
+    effects.css
+    responsive.css
+    accessibility.css
+================================================================
+*/
+
+
+/* ================================================================
+   01. PRIMARY BUTTON
+   ================================================================ */
+
+.primary-button {
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--control-lg);
+
+    gap: 0.55rem;
+
+    padding:
+        0.75rem
+        1.15rem;
+
+    overflow: hidden;
+
+    border: 1px solid
+        rgba(var(--brand-primary-rgb), 0.48);
+
+    border-radius: var(--radius-md);
+
+    background:
+        var(--gradient-brand);
+
+    color: #ffffff;
+
+    font-size: var(--font-sm);
+    font-weight: var(--weight-semibold);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        var(--shadow-brand);
+
+    isolation: isolate;
+}
+
+.primary-button::before {
+    position: absolute;
+    inset: 0;
+
+    content: "";
+
+    background:
+        linear-gradient(
+            120deg,
+            transparent 20%,
+            rgba(255, 255, 255, 0.18) 48%,
+            transparent 76%
+        );
+
+    transform:
+        translateX(-130%);
+
+    transition:
+        transform 700ms var(--ease-smooth);
+
+    z-index: -1;
+}
+
+.primary-button:hover {
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.75);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        var(--shadow-brand-medium);
+}
+
+.primary-button:hover::before {
+    transform: translateX(130%);
+}
+
+.primary-button:active {
+    transform: scale(0.985);
+}
+
+.primary-button svg {
+    width: var(--icon-md);
+    height: var(--icon-md);
+}
+
+.primary-button--large {
+    min-height: var(--control-xl);
+
+    padding-inline: 1.5rem;
+
+    border-radius: var(--radius-lg);
+
+    font-size: var(--font-md);
+}
+
+.primary-button--small {
+    min-height: var(--control-sm);
+
+    padding-inline: 0.8rem;
+
+    font-size: var(--font-xs);
+}
+
+
+/* ================================================================
+   02. SECONDARY BUTTON
+   ================================================================ */
+
+.secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--control-md);
+
+    gap: 0.5rem;
+
+    padding:
+        0.6rem
+        0.85rem;
+
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+
+    background:
+        var(--surface-1);
+
+    color: var(--text-secondary);
+
+    font-size: var(--font-sm);
+    font-weight: var(--weight-medium);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.025);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.secondary-button:hover {
+    border-color: var(--border-visible);
+
+    background:
+        var(--surface-3);
+
+    color: var(--text-primary);
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        var(--shadow-xs);
+}
+
+.secondary-button:active {
+    transform: scale(0.985);
+}
+
+.secondary-button svg {
+    width: var(--icon-md);
+    height: var(--icon-md);
+}
+
+
+/* ================================================================
+   03. GHOST BUTTON
+   ================================================================ */
+
+.ghost-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--control-md);
+
+    gap: 0.45rem;
+
+    padding:
+        0.55rem
+        0.75rem;
+
+    border-radius: var(--radius-md);
+
+    color: var(--text-tertiary);
+
+    font-size: var(--font-sm);
+    font-weight: var(--weight-medium);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard);
+}
+
+.ghost-button:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+}
+
+.ghost-button:active {
+    transform: scale(0.985);
+}
+
+
+/* ================================================================
+   04. DANGER BUTTON
+   ================================================================ */
+
+.danger-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--control-md);
+
+    gap: 0.5rem;
+
+    padding:
+        0.6rem
+        0.9rem;
+
+    border: 1px solid var(--border-danger);
+    border-radius: var(--radius-md);
+
+    background:
+        var(--surface-danger);
+
+    color: var(--text-danger);
+
+    font-size: var(--font-sm);
+    font-weight: var(--weight-semibold);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard);
+}
+
+.danger-button:hover {
+    border-color:
+        rgba(var(--brand-danger-rgb), 0.65);
+
+    background:
+        rgba(var(--brand-danger-rgb), 0.15);
+
+    transform: translateY(-1px);
+}
+
+
+/* ================================================================
+   05. ICON BUTTON
+   ================================================================ */
+
+.icon-button {
+    display: inline-grid;
+    place-items: center;
+
+    width: var(--control-md);
+    height: var(--control-md);
+
+    min-width: var(--control-md);
+    min-height: var(--control-md);
+
+    padding: 0;
+
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+
+    background:
+        var(--surface-1);
+
+    color: var(--text-tertiary);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.icon-button:hover {
+    border-color: var(--border-visible);
+
+    background:
+        var(--surface-3);
+
+    color: var(--text-primary);
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        var(--shadow-xs);
+}
+
+.icon-button:active {
+    transform: scale(0.94);
+}
+
+.icon-button svg {
+    width: var(--icon-md);
+    height: var(--icon-md);
+}
+
+.icon-button--small {
+    width: var(--control-sm);
+    height: var(--control-sm);
+
+    min-width: var(--control-sm);
+    min-height: var(--control-sm);
+
+    border-radius: var(--radius-sm);
+}
+
+.icon-button--large {
+    width: var(--control-lg);
+    height: var(--control-lg);
+
+    min-width: var(--control-lg);
+    min-height: var(--control-lg);
+
+    border-radius: var(--radius-lg);
+}
+
+
+/* ================================================================
+   06. TOPBAR UPLOAD BUTTON
+   ================================================================ */
+
+.topbar__upload {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--control-sm);
+
+    gap: 0.4rem;
+
+    padding:
+        0.5rem
+        0.8rem;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.35);
+
+    border-radius: var(--radius-md);
+
+    background:
+        rgba(var(--brand-primary-rgb), 0.09);
+
+    color: var(--text-brand);
+
+    font-size: var(--font-xs);
+    font-weight: var(--weight-semibold);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.topbar__upload:hover {
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.60);
+
+    background:
+        rgba(var(--brand-primary-rgb), 0.15);
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        var(--shadow-brand);
+}
+
+.topbar__upload svg {
+    width: 0.85rem;
+    height: 0.85rem;
+}
+
+
+/* ================================================================
+   07. AVATAR BUTTON
+   ================================================================ */
+
+.avatar-button {
+    display: grid;
+    place-items: center;
+
+    width: var(--avatar-md);
+    height: var(--avatar-md);
+
+    min-width: var(--avatar-md);
+    min-height: var(--avatar-md);
+
+    padding: 2px;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.34);
+
+    border-radius: var(--radius-circle);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(var(--brand-primary-rgb), 0.26),
+            rgba(var(--brand-secondary-rgb), 0.08)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        var(--shadow-xs);
+
+    transition:
+        transform var(--duration-normal) var(--ease-spring),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.avatar-button:hover {
+    transform: scale(1.05);
+
+    box-shadow:
+        var(--shadow-brand);
+}
+
+.avatar-button__initial {
+    display: grid;
+    place-items: center;
+
+    width: 100%;
+    height: 100%;
+
+    border-radius: inherit;
+
+    background:
+        var(--bg-elevated);
+
+    color: var(--text-primary);
+
+    font-family: var(--font-display);
+    font-size: var(--font-xs);
+    font-weight: var(--weight-bold);
+}
+
+
+/* ================================================================
+   08. BADGE
+   ================================================================ */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--badge-height);
+
+    gap: 0.35rem;
+
+    padding:
+        0 var(--badge-horizontal-padding);
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius: var(--badge-radius);
+
+    background:
+        var(--surface-1);
+
+    color: var(--text-tertiary);
+
+    font-size: var(--badge-font-size);
+    font-weight: var(--weight-semibold);
+    line-height: 1;
+}
+
+.badge svg {
+    width: 0.72rem;
+    height: 0.72rem;
+}
+
+.badge--brand {
+    border-color: var(--border-brand);
+    background: var(--surface-brand);
+    color: var(--text-brand);
+}
+
+.badge--success {
+    border-color: var(--border-success);
+    background: var(--surface-success);
+    color: var(--text-success);
+}
+
+.badge--warning {
+    border-color: var(--border-warning);
+    background: var(--surface-warning);
+    color: var(--text-warning);
+}
+
+.badge--danger {
+    border-color: var(--border-danger);
+    background: var(--surface-danger);
+    color: var(--text-danger);
+}
+
+
+/* ================================================================
+   09. STATUS BADGE
+   ================================================================ */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.4rem;
+
+    min-height: 1.8rem;
+
+    padding-inline: 0.65rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+}
+
+.status-badge__dot {
+    width: 0.38rem;
+    height: 0.38rem;
+
+    flex: 0 0 auto;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--text-muted);
+}
+
+.status-badge--online {
+    border-color:
+        var(--border-success);
+
+    background:
+        var(--surface-success);
+
+    color:
+        var(--text-success);
+}
+
+.status-badge--online .status-badge__dot {
+    background:
+        var(--status-online);
+
+    box-shadow:
+        var(--status-online-glow);
+}
+
+.status-badge--processing {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+}
+
+.status-badge--processing .status-badge__dot {
+    background:
+        var(--status-processing);
+
+    box-shadow:
+        var(--status-processing-glow);
+}
+
+.status-badge--error {
+    border-color:
+        var(--border-danger);
+
+    background:
+        var(--surface-danger);
+
+    color:
+        var(--text-danger);
+}
+
+.status-badge--error .status-badge__dot {
+    background:
+        var(--status-error);
+
+    box-shadow:
+        var(--status-error-glow);
+}
+
+
+/* ================================================================
+   10. EYEBROW
+   ================================================================ */
+
+.eyebrow {
+    display: inline-flex;
+    align-items: center;
+
+    width: fit-content;
+
+    gap: 0.55rem;
+
+    padding:
+        0.42rem
+        0.72rem
+        0.42rem
+        0.45rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-secondary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+}
+
+.eyebrow__icon {
+    display: grid;
+    place-items: center;
+
+    width: 1.4rem;
+    height: 1.4rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   11. CAPABILITY CHIP
+   ================================================================ */
+
+.capability {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 0.42rem;
+
+    min-height: 2rem;
+
+    padding-inline: 0.7rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    transition:
+        color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard);
+}
+
+.capability:hover {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-secondary);
+
+    transform:
+        translateY(-1px);
+}
+
+.capability svg {
+    width: 0.82rem;
+    height: 0.82rem;
+
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   12. SUGGESTION CHIP
+   ================================================================ */
+
+.suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+
+    max-width: 100%;
+
+    gap: 0.45rem;
+
+    min-height: 2.15rem;
+
+    padding:
+        0.45rem
+        0.75rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    line-height: 1.25;
+
+    text-align: left;
+
+    transition:
+        color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.suggestion-chip:hover {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-secondary);
+
+    transform:
+        translateY(-1px);
+
+    box-shadow:
+        var(--shadow-xs);
+}
+
+.suggestion-chip:active {
+    transform:
+        scale(0.985);
+}
+
+.suggestion-chip svg {
+    width: 0.82rem;
+    height: 0.82rem;
+
+    flex: 0 0 auto;
+
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   13. LIVE INDICATOR
+   ================================================================ */
+
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 0.7rem;
+    height: 0.7rem;
+}
+
+.live-indicator > span {
+    width: 0.42rem;
+    height: 0.42rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--status-online);
+
+    box-shadow:
+        var(--status-online-glow);
+}
+
+
+/* ================================================================
+   14. TOOLBAR
+   ================================================================ */
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    width: 100%;
+
+    gap: 1rem;
+}
+
+.toolbar__left,
+.toolbar__right {
+    display: flex;
+    align-items: center;
+
+    gap: 0.6rem;
+
+    min-width: 0;
+}
+
+
+/* ================================================================
+   15. DIVIDER
+   ================================================================ */
+
+.divider {
+    width: 100%;
+    height: 1px;
+
+    background:
+        var(--border-subtle);
+}
+
+.divider--vertical {
+    width: 1px;
+    height: 1.4rem;
+}
+
+
+/* ================================================================
+   16. ICON WRAPPER
+   ================================================================ */
+
+.icon-box {
+    display: grid;
+    place-items: center;
+
+    width: 2.75rem;
+    height: 2.75rem;
+
+    flex: 0 0 auto;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-tertiary);
+}
+
+.icon-box--brand {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+}
+
+.icon-box--success {
+    border-color:
+        var(--border-success);
+
+    background:
+        var(--surface-success);
+
+    color:
+        var(--text-success);
+}
+
+.icon-box--warning {
+    border-color:
+        var(--border-warning);
+
+    background:
+        var(--surface-warning);
+
+    color:
+        var(--text-warning);
+}
+
+.icon-box--danger {
+    border-color:
+        var(--border-danger);
+
+    background:
+        var(--surface-danger);
+
+    color:
+        var(--text-danger);
+}
+
+
+/* ================================================================
+   17. DIVIDED SURFACE
+   ================================================================ */
+
+.divided-surface {
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-xl);
+
+    background:
+        var(--surface-gradient);
+
+    overflow: hidden;
+}
+
+.divided-surface > * + * {
+    border-top:
+        1px solid
+        var(--border-subtle);
+}
+
+
+/* ================================================================
+   18. TOOLTIP FOUNDATION
+   ================================================================ */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    position: absolute;
+
+    left: 50%;
+    bottom: calc(100% + 0.55rem);
+
+    width: max-content;
+    max-width: var(--tooltip-max-width);
+
+    padding:
+        0.45rem
+        0.65rem;
+
+    content: attr(data-tooltip);
+
+    border:
+        1px solid
+        var(--tooltip-border);
+
+    border-radius:
+        var(--radius-sm);
+
+    background:
+        var(--tooltip-background);
+
+    color:
+        var(--text-primary);
+
+    box-shadow:
+        var(--tooltip-shadow);
+
+    font-size:
+        var(--font-2xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    line-height:
+        var(--leading-snug);
+
+    text-align:
+        center;
+
+    opacity:
+        0;
+
+    pointer-events:
+        none;
+
+    transform:
+        translate(-50%, 4px);
+
+    transition:
+        opacity var(--duration-fast) var(--ease-standard),
+        transform var(--duration-fast) var(--ease-standard);
+
+    z-index:
+        var(--z-tooltip);
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+    opacity: 1;
+
+    transform:
+        translate(-50%, 0);
+}
+
+
+/* ================================================================
+   19. SKELETON
+   ================================================================ */
+
+.skeleton {
+    position: relative;
+
+    overflow: hidden;
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        var(--skeleton-background);
+}
+
+.skeleton::after {
+    position: absolute;
+    inset: 0;
+
+    content: "";
+
+    background:
+        linear-gradient(
+            100deg,
+            transparent 20%,
+            var(--skeleton-highlight) 50%,
+            transparent 80%
+        );
+
+    transform:
+        translateX(-100%);
+
+    animation:
+        skeleton-shimmer
+        var(--skeleton-duration)
+        var(--ease-linear)
+        infinite;
+}
+
+.skeleton--image {
+    aspect-ratio:
+        var(--media-ratio-card);
+
+    width: 100%;
+}
+
+.skeleton--line {
+    width: 80%;
+    height: 0.9rem;
+}
+
+.skeleton--short {
+    width: 55%;
+    height: 0.7rem;
+}
+
+.skeleton--meta {
+    width: 40%;
+    height: 0.65rem;
+}
+
+
+/* ================================================================
+   20. LOADING SPINNER
+   ================================================================ */
+
+.spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+
+    border:
+        2px solid
+        rgba(255, 255, 255, 0.10);
+
+    border-top-color:
+        var(--brand-primary);
+
+    border-radius:
+        var(--radius-circle);
+
+    animation:
+        component-spin
+        750ms
+        linear
+        infinite;
+}
+
+.spinner--small {
+    width: 0.9rem;
+    height: 0.9rem;
+
+    border-width: 1.5px;
+}
+
+.spinner--large {
+    width: 2rem;
+    height: 2rem;
+
+    border-width: 2px;
+}
+
+
+/* ================================================================
+   21. PROGRESS BAR
+   ================================================================ */
+
+.progress {
+    width: 100%;
+    height: 0.35rem;
+
+    overflow: hidden;
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-3);
+}
+
+.progress__bar {
+    width: 0;
+    height: 100%;
+
+    border-radius:
+        inherit;
+
+    background:
+        var(--gradient-brand);
+
+    box-shadow:
+        0 0 16px
+        rgba(var(--brand-primary-rgb), 0.35);
+
+    transition:
+        width var(--duration-medium) var(--ease-smooth);
+}
+
+
+/* ================================================================
+   22. CONFIDENCE METER
+   ================================================================ */
+
+.confidence {
+    display: flex;
+    flex-direction: column;
+
+    gap: 0.45rem;
+}
+
+.confidence__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 1rem;
+}
+
+.confidence__label {
+    color: var(--text-tertiary);
+
+    font-size: var(--font-xs);
+    font-weight: var(--weight-medium);
+}
+
+.confidence__value {
+    color: var(--text-primary);
+
+    font-size: var(--font-xs);
+    font-weight: var(--weight-semibold);
+}
+
+.confidence__track {
+    width: 100%;
+    height: 0.32rem;
+
+    overflow: hidden;
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-3);
+}
+
+.confidence__fill {
+    height: 100%;
+
+    width: 0;
+
+    border-radius:
+        inherit;
+
+    background:
+        var(--gradient-brand);
+
+    transition:
+        width var(--duration-slow) var(--ease-smooth);
+}
+
+.confidence--high .confidence__fill {
+    background:
+        var(--gradient-success);
+}
+
+.confidence--medium .confidence__fill {
+    background:
+        linear-gradient(
+            90deg,
+            var(--brand-warning),
+            #ffe4a3
+        );
+}
+
+.confidence--low .confidence__fill {
+    background:
+        linear-gradient(
+            90deg,
+            var(--brand-danger),
+            #ff9eb4
+        );
+}
+
+
+/* ================================================================
+   23. KEY VALUE ROW
+   ================================================================ */
+
+.key-value {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding-block: 0.65rem;
+}
+
+.key-value__key {
+    color: var(--text-tertiary);
+
+    font-size: var(--font-xs);
+}
+
+.key-value__value {
+    color: var(--text-primary);
+
+    font-size: var(--font-sm);
+    font-weight: var(--weight-medium);
+
+    text-align: right;
+}
+
+
+/* ================================================================
+   24. CHIP GROUP
+   ================================================================ */
+
+.chip-group {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.45rem;
+}
+
+
+/* ================================================================
+   25. ALERT
+   ================================================================ */
+
+.alert {
+    display: flex;
+    align-items: flex-start;
+
+    gap: 0.75rem;
+
+    padding:
+        0.85rem
+        0.95rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-secondary);
+}
+
+.alert__icon {
+    display: grid;
+    place-items: center;
+
+    width: 2rem;
+    height: 2rem;
+
+    flex: 0 0 auto;
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        var(--surface-info);
+
+    color:
+        var(--text-info);
+}
+
+.alert__content {
+    min-width: 0;
+}
+
+.alert__title {
+    display: block;
+
+    margin-bottom: 0.18rem;
+
+    color: var(--text-primary);
+
+    font-size: var(--font-sm);
+    font-weight: var(--weight-semibold);
+}
+
+.alert__message {
+    color: var(--text-tertiary);
+
+    font-size: var(--font-xs);
+    line-height: 1.55;
+}
+
+.alert--success {
+    border-color:
+        var(--border-success);
+
+    background:
+        var(--surface-success);
+}
+
+.alert--success .alert__icon {
+    background:
+        rgba(var(--brand-success-rgb), 0.14);
+
+    color:
+        var(--text-success);
+}
+
+.alert--warning {
+    border-color:
+        var(--border-warning);
+
+    background:
+        var(--surface-warning);
+}
+
+.alert--warning .alert__icon {
+    background:
+        rgba(var(--brand-warning-rgb), 0.14);
+
+    color:
+        var(--text-warning);
+}
+
+.alert--danger {
+    border-color:
+        var(--border-danger);
+
+    background:
+        var(--surface-danger);
+}
+
+.alert--danger .alert__icon {
+    background:
+        rgba(var(--brand-danger-rgb), 0.14);
+
+    color:
+        var(--text-danger);
+}
+
+
+/* ================================================================
+   26. DIVIDER DOT
+   ================================================================ */
+
+.dot-separator {
+    display: inline-block;
+
+    width: 0.25rem;
+    height: 0.25rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--text-muted);
+}
+
+
+/* ================================================================
+   27. VISUAL STATUS PULSE
+   ================================================================ */
+
+.status-pulse {
+    position: relative;
+
+    display: inline-block;
+
+    width: 0.6rem;
+    height: 0.6rem;
+}
+
+.status-pulse::before,
+.status-pulse::after {
+    position: absolute;
+    inset: 0;
+
+    border-radius:
+        var(--radius-circle);
+
+    content: "";
+}
+
+.status-pulse::before {
+    background:
+        var(--status-online);
+}
+
+.status-pulse::after {
+    background:
+        var(--status-online);
+
+    animation:
+        status-pulse
+        1.8s
+        ease-out
+        infinite;
+}
+
+
+/* ================================================================
+   28. DIVIDER FADE
+   ================================================================ */
+
+.fade-divider {
+    width: 100%;
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            var(--border-default),
+            transparent
+        );
+}
+
+
+/* ================================================================
+   29. RESPONSIVE COMPONENT BASICS
+   ================================================================ */
+
+@media (max-width: 767px) {
+
+    .topbar__upload span {
+        display: none;
+    }
+
+    .topbar__upload {
+        width: var(--control-sm);
+        min-width: var(--control-sm);
+
+        padding: 0;
+    }
+
+    .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .toolbar__left,
+    .toolbar__right {
+        width: 100%;
+    }
+
+    .toolbar__right {
+        justify-content: flex-end;
+    }
+}
+
+
+@media (max-width: 479px) {
+
+    .primary-button--large {
+        width: 100%;
+    }
+
+    .secondary-button {
+        font-size: var(--font-xs);
+    }
+
+    .suggestion-chip {
+        max-width: 100%;
+    }
+
+    .key-value {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .key-value__value {
+        text-align: left;
+    }
+}
+
+
+/* ================================================================
+   30. REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .primary-button::before,
+    .skeleton::after,
+    .spinner,
+    .status-pulse::after {
+        animation: none;
+        transition: none;
+    }
+
+    .primary-button:hover,
+    .secondary-button:hover,
+    .icon-button:hover,
+    .capability:hover,
+    .suggestion-chip:hover {
+        transform: none;
+    }
+}

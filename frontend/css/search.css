@@ -1,0 +1,1659 @@
+/*
+================================================================
+ MEMORYOS — PREMIUM SEARCH SYSTEM
+ search.css
+================================================================
+
+Purpose:
+- AI search composer
+- search input
+- search button
+- keyboard shortcut
+- focus states
+- suggestion chips
+- search loading state
+- query context
+- semantic search indicators
+- search result toolbar
+- mobile behavior
+
+Depends on:
+    variables.css
+    reset.css
+    base.css
+    layout.css
+    components.css
+    cards.css
+
+Animation keyframes belong in:
+    animations.css
+================================================================
+*/
+
+
+/* ================================================================
+   01. SEARCH SECTION FOUNDATION
+   ================================================================ */
+
+#search {
+    scroll-margin-top:
+        calc(var(--topbar-height) + 2rem);
+}
+
+.search-section {
+    position: relative;
+}
+
+
+/* ================================================================
+   02. SEARCH COMPOSER
+   ================================================================ */
+
+.search-composer {
+    position: relative;
+
+    width: min(
+        100%,
+        54rem
+    );
+
+    margin-top:
+        2.25rem;
+
+    isolation: isolate;
+}
+
+
+/* ================================================================
+   03. SEARCH COMPOSER GLOW
+   ================================================================ */
+
+.search-composer__glow {
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    width:
+        82%;
+
+    height:
+        180%;
+
+    content: "";
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        radial-gradient(
+            ellipse,
+            rgba(var(--brand-primary-rgb), 0.16),
+            rgba(var(--brand-secondary-rgb), 0.035) 42%,
+            transparent 72%
+        );
+
+    filter:
+        blur(35px);
+
+    opacity:
+        0.72;
+
+    transform:
+        translate(-50%, -50%);
+
+    pointer-events:
+        none;
+
+    z-index:
+        var(--z-behind);
+
+    transition:
+        opacity var(--duration-medium) var(--ease-standard),
+        transform var(--duration-medium) var(--ease-smooth);
+}
+
+
+/* ================================================================
+   04. SEARCH COMPOSER INNER
+   ================================================================ */
+
+.search-composer__inner {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+
+    min-height:
+        var(--search-height);
+
+    gap:
+        0.75rem;
+
+    padding:
+        var(--search-padding);
+
+    border:
+        1px solid
+        var(--border-default);
+
+    border-radius:
+        var(--search-radius);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.075),
+            rgba(255, 255, 255, 0.025)
+        );
+
+    -webkit-backdrop-filter:
+        var(--glass-blur-large)
+        var(--glass-saturation);
+
+    backdrop-filter:
+        var(--glass-blur-large)
+        var(--glass-saturation);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.065),
+        0 18px 60px rgba(0, 0, 0, 0.25);
+
+    transition:
+        border-color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-medium) var(--ease-standard),
+        transform var(--duration-medium) var(--ease-smooth);
+}
+
+
+/* ================================================================
+   05. SEARCH COMPOSER HOVER
+   ================================================================ */
+
+.search-composer__inner:hover {
+    border-color:
+        var(--border-visible);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.085),
+            rgba(255, 255, 255, 0.032)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.075),
+        0 22px 68px rgba(0, 0, 0, 0.28);
+}
+
+
+/* ================================================================
+   06. SEARCH COMPOSER FOCUS
+   ================================================================ */
+
+.search-composer:focus-within .search-composer__inner {
+    border-color:
+        var(--border-brand-strong);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(var(--brand-primary-rgb), 0.065),
+            rgba(255, 255, 255, 0.028)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.075),
+        var(--search-focus-shadow);
+
+    transform:
+        translateY(-1px);
+}
+
+.search-composer:focus-within .search-composer__glow {
+    opacity:
+        1;
+
+    transform:
+        translate(-50%, -50%)
+        scale(1.08);
+}
+
+
+/* ================================================================
+   07. SEARCH ICON
+   ================================================================ */
+
+.search-composer__icon {
+    display: grid;
+    place-items: center;
+
+    width:
+        3rem;
+
+    height:
+        3rem;
+
+    flex:
+        0 0 auto;
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-medium) var(--ease-spring);
+}
+
+.search-composer:focus-within .search-composer__icon {
+    background:
+        var(--gradient-brand-soft);
+
+    color:
+        var(--brand-primary-light);
+
+    transform:
+        scale(1.04);
+}
+
+.search-composer__icon svg {
+    width:
+        var(--search-icon-size);
+
+    height:
+        var(--search-icon-size);
+}
+
+
+/* ================================================================
+   08. SEARCH INPUT
+   ================================================================ */
+
+.search-composer__input {
+    flex:
+        1 1 auto;
+
+    min-width:
+        0;
+
+    height:
+        3.5rem;
+
+    padding:
+        0;
+
+    border:
+        0;
+
+    outline:
+        0;
+
+    background:
+        transparent;
+
+    color:
+        var(--text-primary);
+
+    font-family:
+        var(--font-body);
+
+    font-size:
+        clamp(
+            0.95rem,
+            1.7vw,
+            1.08rem
+        );
+
+    font-weight:
+        var(--weight-medium);
+
+    line-height:
+        1;
+
+    letter-spacing:
+        -0.008em;
+}
+
+.search-composer__input::placeholder {
+    color:
+        var(--text-muted);
+
+    opacity:
+        1;
+
+    transition:
+        color var(--duration-normal) var(--ease-standard),
+        opacity var(--duration-normal) var(--ease-standard);
+}
+
+.search-composer__input:focus::placeholder {
+    color:
+        var(--text-tertiary);
+
+    opacity:
+        0.75;
+}
+
+
+/* ================================================================
+   09. SEARCH KEYBOARD SHORTCUT
+   ================================================================ */
+
+.search-composer__shortcut {
+    display: inline-flex;
+    align-items: center;
+
+    flex:
+        0 0 auto;
+
+    gap:
+        0.22rem;
+
+    margin-right:
+        0.15rem;
+
+    opacity:
+        0.72;
+
+    transition:
+        opacity var(--duration-normal) var(--ease-standard);
+}
+
+.search-composer__shortcut kbd {
+    min-width:
+        1.55rem;
+
+    min-height:
+        1.45rem;
+
+    padding:
+        0.2rem
+        0.3rem;
+
+    border:
+        1px solid
+        var(--border-default);
+
+    border-radius:
+        var(--radius-xs);
+
+    background:
+        var(--surface-2);
+
+    color:
+        var(--text-muted);
+
+    box-shadow:
+        inset 0 -1px 0 rgba(0, 0, 0, 0.20);
+
+    font-size:
+        0.62rem;
+}
+
+.search-composer:focus-within
+.search-composer__shortcut {
+    opacity:
+        0.42;
+}
+
+
+/* ================================================================
+   10. SEARCH SUBMIT BUTTON
+   ================================================================ */
+
+.search-composer__submit {
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width:
+        7.2rem;
+
+    height:
+        3.55rem;
+
+    flex:
+        0 0 auto;
+
+    gap:
+        0.45rem;
+
+    padding:
+        0 1rem;
+
+    overflow:
+        hidden;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.46);
+
+    border-radius:
+        calc(var(--search-radius) - 0.3rem);
+
+    background:
+        var(--gradient-brand);
+
+    color:
+        #ffffff;
+
+    font-size:
+        var(--font-sm);
+
+    font-weight:
+        var(--weight-semibold);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        var(--shadow-brand);
+
+    transition:
+        transform var(--duration-normal) var(--ease-spring),
+        box-shadow var(--duration-normal) var(--ease-standard),
+        filter var(--duration-normal) var(--ease-standard);
+}
+
+.search-composer__submit::before {
+    position: absolute;
+
+    inset:
+        0;
+
+    content:
+        "";
+
+    background:
+        linear-gradient(
+            110deg,
+            transparent 15%,
+            rgba(255, 255, 255, 0.20) 50%,
+            transparent 85%
+        );
+
+    transform:
+        translateX(-130%);
+
+    transition:
+        transform 650ms var(--ease-smooth);
+}
+
+.search-composer__submit:hover {
+    filter:
+        brightness(1.07);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        var(--shadow-brand-medium);
+
+    transform:
+        translateY(-1px);
+}
+
+.search-composer__submit:hover::before {
+    transform:
+        translateX(130%);
+}
+
+.search-composer__submit:active {
+    transform:
+        scale(0.975);
+}
+
+.search-composer__submit span,
+.search-composer__submit svg {
+    position:
+        relative;
+
+    z-index:
+        1;
+}
+
+.search-composer__submit svg {
+    width:
+        0.95rem;
+
+    height:
+        0.95rem;
+
+    transition:
+        transform var(--duration-normal) var(--ease-spring);
+}
+
+.search-composer__submit:hover svg {
+    transform:
+        translate(2px, -2px);
+}
+
+
+/* ================================================================
+   11. SEARCH SUGGESTIONS
+   ================================================================ */
+
+.search-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+
+    align-items: center;
+
+    gap:
+        0.5rem;
+
+    margin-top:
+        0.9rem;
+
+    min-height:
+        2.2rem;
+}
+
+
+/* ================================================================
+   12. SEARCH SUGGESTION CHIP
+   ================================================================ */
+
+.search-suggestions .suggestion-chip {
+    transform:
+        translateY(0);
+
+    opacity:
+        0.88;
+}
+
+.search-suggestions .suggestion-chip:hover {
+    opacity:
+        1;
+
+    transform:
+        translateY(-2px);
+}
+
+.search-suggestions .suggestion-chip:nth-child(1) {
+    transition-delay:
+        20ms;
+}
+
+.search-suggestions .suggestion-chip:nth-child(2) {
+    transition-delay:
+        40ms;
+}
+
+.search-suggestions .suggestion-chip:nth-child(3) {
+    transition-delay:
+        60ms;
+}
+
+.search-suggestions .suggestion-chip:nth-child(4) {
+    transition-delay:
+        80ms;
+}
+
+
+/* ================================================================
+   13. SEARCH ACTIVE QUERY
+   ================================================================ */
+
+.search-composer.has-query
+.search-composer__inner {
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.38);
+}
+
+.search-composer.has-query
+.search-composer__icon {
+    background:
+        rgba(var(--brand-primary-rgb), 0.15);
+
+    box-shadow:
+        0 0 20px
+        rgba(var(--brand-primary-rgb), 0.10);
+}
+
+
+/* ================================================================
+   14. SEARCH LOADING
+   ================================================================ */
+
+.search-composer.is-loading
+.search-composer__inner {
+    border-color:
+        var(--border-brand);
+
+    pointer-events:
+        none;
+}
+
+.search-composer.is-loading
+.search-composer__icon {
+    position:
+        relative;
+}
+
+.search-composer.is-loading
+.search-composer__icon::after {
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    margin:
+        auto;
+
+    width:
+        1.75rem;
+
+    height:
+        1.75rem;
+
+    content:
+        "";
+
+    border:
+        2px solid
+        rgba(var(--brand-primary-rgb), 0.14);
+
+    border-top-color:
+        var(--brand-primary);
+
+    border-radius:
+        var(--radius-circle);
+
+    opacity:
+        1;
+}
+
+
+/* ================================================================
+   15. SEARCH LOADING BUTTON
+   ================================================================ */
+
+.search-composer.is-loading
+.search-composer__submit {
+    opacity:
+        0.78;
+
+    cursor:
+        progress;
+}
+
+.search-composer.is-loading
+.search-composer__submit svg {
+    opacity:
+        0;
+}
+
+
+/* ================================================================
+   16. SEARCH PROCESSING DOTS
+   ================================================================ */
+
+.search-composer__loading-label {
+    display:
+        none;
+
+    align-items:
+        center;
+
+    gap:
+        0.18rem;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+}
+
+.search-composer__loading-label span {
+    width:
+        0.28rem;
+
+    height:
+        0.28rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--brand-primary);
+}
+
+
+/* ================================================================
+   17. SEARCH RESULT CONTEXT
+   ================================================================ */
+
+.search-context {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        0.5rem;
+
+    margin-bottom:
+        1rem;
+}
+
+.search-context__label {
+    color:
+        var(--text-muted);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+}
+
+.search-context__query {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    max-width:
+        100%;
+
+    gap:
+        0.4rem;
+
+    padding:
+        0.42rem
+        0.65rem;
+
+    overflow:
+        hidden;
+
+    border:
+        1px solid
+        var(--border-brand);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-primary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+.search-context__query svg {
+    width:
+        0.75rem;
+
+    height:
+        0.75rem;
+
+    flex:
+        0 0 auto;
+
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   18. SEARCH RESULT COUNT
+   ================================================================ */
+
+.search-result-count {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.35rem;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+}
+
+.search-result-count strong {
+    color:
+        var(--text-primary);
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+
+/* ================================================================
+   19. SEMANTIC SEARCH INDICATOR
+   ================================================================ */
+
+.semantic-indicator {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.42rem;
+
+    min-height:
+        1.8rem;
+
+    padding-inline:
+        0.62rem;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.26);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        rgba(var(--brand-primary-rgb), 0.07);
+
+    color:
+        var(--text-brand);
+
+    font-size:
+        var(--font-2xs);
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.semantic-indicator__icon {
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        1rem;
+
+    height:
+        1rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        rgba(var(--brand-primary-rgb), 0.14);
+}
+
+.semantic-indicator__icon svg {
+    width:
+        0.58rem;
+
+    height:
+        0.58rem;
+}
+
+
+/* ================================================================
+   20. SEARCH TYPE INDICATOR
+   ================================================================ */
+
+.search-mode {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.35rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        var(--font-2xs);
+
+    font-weight:
+        var(--weight-medium);
+}
+
+.search-mode__dot {
+    width:
+        0.32rem;
+
+    height:
+        0.32rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--brand-primary);
+
+    box-shadow:
+        var(--status-processing-glow);
+}
+
+
+/* ================================================================
+   21. SEARCH FILTER ROW
+   ================================================================ */
+
+.search-filter-row {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        0.45rem;
+
+    margin-top:
+        0.75rem;
+}
+
+.search-filter {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.4rem;
+
+    min-height:
+        2rem;
+
+    padding:
+        0
+        0.65rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-2xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard);
+}
+
+.search-filter:hover,
+.search-filter.is-active {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+}
+
+.search-filter svg {
+    width:
+        0.72rem;
+
+    height:
+        0.72rem;
+}
+
+
+/* ================================================================
+   22. SEARCH TOOLBAR
+   ================================================================ */
+
+.results-toolbar {
+    border-top:
+        1px solid
+        transparent;
+}
+
+.results-toolbar.is-searching {
+    border-top-color:
+        var(--border-subtle);
+}
+
+.results-toolbar__status {
+    transition:
+        color var(--duration-normal) var(--ease-standard);
+}
+
+.results-toolbar.is-searching
+.results-toolbar__status {
+    color:
+        var(--text-primary);
+}
+
+
+/* ================================================================
+   23. SEARCH TOOLBAR AI BADGE
+   ================================================================ */
+
+.results-toolbar__ai {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.35rem;
+
+    min-height:
+        1.7rem;
+
+    padding-inline:
+        0.55rem;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.22);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        rgba(var(--brand-primary-rgb), 0.055);
+
+    color:
+        var(--text-brand);
+
+    font-size:
+        var(--font-2xs);
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.results-toolbar__ai svg {
+    width:
+        0.68rem;
+
+    height:
+        0.68rem;
+}
+
+
+/* ================================================================
+   24. NO RESULTS SEARCH STATE
+   ================================================================ */
+
+.search-empty-state {
+    position:
+        relative;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-2xl);
+
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(var(--brand-primary-rgb), 0.045),
+            transparent 55%
+        );
+
+    overflow:
+        hidden;
+}
+
+.search-empty-state::before {
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    content:
+        "";
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(var(--brand-primary-rgb), 0.03),
+            transparent
+        );
+
+    pointer-events:
+        none;
+}
+
+
+/* ================================================================
+   25. SEARCH NO MATCH ICON
+   ================================================================ */
+
+.search-empty-state__icon {
+    box-shadow:
+        0 0 40px
+        rgba(var(--brand-primary-rgb), 0.10);
+}
+
+
+/* ================================================================
+   26. SEARCH RECENT QUERIES
+   ================================================================ */
+
+.recent-searches {
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        0.25rem;
+}
+
+.recent-search {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.65rem;
+
+    min-height:
+        2.75rem;
+
+    padding:
+        0.5rem
+        0.65rem;
+
+    border:
+        1px solid
+        transparent;
+
+    border-radius:
+        var(--radius-md);
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard);
+}
+
+.recent-search:hover {
+    border-color:
+        var(--border-subtle);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-secondary);
+}
+
+.recent-search svg {
+    width:
+        0.82rem;
+
+    height:
+        0.82rem;
+
+    color:
+        var(--text-muted);
+}
+
+
+/* ================================================================
+   27. SEARCH HISTORY DELETE
+   ================================================================ */
+
+.recent-search__remove {
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        1.9rem;
+
+    height:
+        1.9rem;
+
+    margin-left:
+        auto;
+
+    border-radius:
+        var(--radius-sm);
+
+    color:
+        var(--text-muted);
+
+    opacity:
+        0;
+
+    transition:
+        opacity var(--duration-fast) var(--ease-standard),
+        background-color var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+}
+
+.recent-search:hover
+.recent-search__remove,
+.recent-search:focus-within
+.recent-search__remove {
+    opacity:
+        1;
+}
+
+.recent-search__remove:hover {
+    background:
+        var(--surface-danger);
+
+    color:
+        var(--text-danger);
+}
+
+.recent-search__remove svg {
+    width:
+        0.72rem;
+
+    height:
+        0.72rem;
+}
+
+
+/* ================================================================
+   28. SEARCH ERROR STATE
+   ================================================================ */
+
+.search-error {
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    gap:
+        0.75rem;
+
+    padding:
+        0.9rem;
+
+    border:
+        1px solid
+        var(--border-danger);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-danger);
+
+    color:
+        var(--text-danger);
+}
+
+.search-error__icon {
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        2rem;
+
+    height:
+        2rem;
+
+    flex:
+        0 0 auto;
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        rgba(var(--brand-danger-rgb), 0.14);
+}
+
+.search-error__content {
+    min-width:
+        0;
+}
+
+.search-error__title {
+    display:
+        block;
+
+    margin-bottom:
+        0.15rem;
+
+    color:
+        var(--text-primary);
+
+    font-size:
+        var(--font-sm);
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.search-error__message {
+    color:
+        var(--text-secondary);
+
+    font-size:
+        var(--font-xs);
+
+    line-height:
+        1.55;
+}
+
+
+/* ================================================================
+   29. SEARCH CLEAR BUTTON
+   ================================================================ */
+
+.search-clear {
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        2rem;
+
+    height:
+        2rem;
+
+    flex:
+        0 0 auto;
+
+    border-radius:
+        var(--radius-sm);
+
+    color:
+        var(--text-muted);
+
+    transition:
+        background-color var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+}
+
+.search-clear:hover {
+    background:
+        var(--surface-3);
+
+    color:
+        var(--text-primary);
+}
+
+.search-clear svg {
+    width:
+        0.82rem;
+
+    height:
+        0.82rem;
+}
+
+
+/* ================================================================
+   30. SEARCH COMPOSER MOBILE
+   ================================================================ */
+
+@media (max-width: 767px) {
+
+    .search-composer {
+        margin-top:
+            1.6rem;
+    }
+
+    .search-composer__inner {
+        min-height:
+            var(--search-height-mobile);
+
+        gap:
+            0.5rem;
+
+        padding:
+            0.35rem;
+
+        border-radius:
+            1.15rem;
+    }
+
+    .search-composer__icon {
+        width:
+            2.8rem;
+
+        height:
+            2.8rem;
+
+        border-radius:
+            0.85rem;
+    }
+
+    .search-composer__input {
+        height:
+            3rem;
+
+        font-size:
+            0.92rem;
+    }
+
+    .search-composer__shortcut {
+        display:
+            none;
+    }
+
+    .search-composer__submit {
+        min-width:
+            3rem;
+
+        width:
+            3rem;
+
+        height:
+            3rem;
+
+        padding:
+            0;
+
+        border-radius:
+            0.85rem;
+    }
+
+    .search-composer__submit span {
+        display:
+            none;
+    }
+
+    .search-composer__submit svg {
+        width:
+            1rem;
+
+        height:
+            1rem;
+    }
+
+    .search-suggestions {
+        flex-wrap:
+            nowrap;
+
+        margin-inline:
+            -0.1rem;
+
+        padding-bottom:
+            0.2rem;
+
+        overflow-x:
+            auto;
+
+        scrollbar-width:
+            none;
+    }
+
+    .search-suggestions::-webkit-scrollbar {
+        display:
+            none;
+    }
+
+    .search-suggestions .suggestion-chip {
+        flex:
+            0 0 auto;
+
+        max-width:
+            18rem;
+    }
+
+    .search-context {
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+    }
+}
+
+
+/* ================================================================
+   31. SEARCH SMALL MOBILE
+   ================================================================ */
+
+@media (max-width: 479px) {
+
+    .search-composer__icon {
+        width:
+            2.55rem;
+
+        height:
+            2.55rem;
+    }
+
+    .search-composer__input {
+        font-size:
+            0.86rem;
+    }
+
+    .search-composer__submit {
+        width:
+            2.75rem;
+
+        min-width:
+            2.75rem;
+
+        height:
+            2.75rem;
+    }
+
+    .search-suggestions .suggestion-chip {
+        font-size:
+            0.66rem;
+    }
+}
+
+
+/* ================================================================
+   32. REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .search-composer__inner,
+    .search-composer__glow,
+    .search-composer__icon,
+    .search-composer__submit,
+    .search-suggestions .suggestion-chip {
+        transition:
+            none;
+    }
+
+    .search-composer__submit::before {
+        transition:
+            none;
+    }
+
+    .search-composer__submit:hover {
+        transform:
+            none;
+    }
+}
+
+
+/* ================================================================
+   33. HIGH CONTRAST
+   ================================================================ */
+
+@media (prefers-contrast: more) {
+
+    .search-composer__inner {
+        border-color:
+            var(--border-visible);
+    }
+
+    .search-composer:focus-within
+    .search-composer__inner {
+        border-color:
+            var(--border-brand-strong);
+    }
+
+    .search-composer__input::placeholder {
+        color:
+            var(--text-secondary);
+    }
+}

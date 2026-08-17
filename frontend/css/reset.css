@@ -1,0 +1,734 @@
+
+/*
+================================================================
+ MEMORYOS — PREMIUM CSS RESET
+ reset.css
+================================================================
+
+Purpose:
+- Normalize browser defaults.
+- Improve box sizing.
+- Remove unwanted margins.
+- Improve typography rendering.
+- Make media responsive.
+- Normalize buttons and form controls.
+- Preserve accessibility.
+- Prepare a clean foundation for the MemoryOS design system.
+
+This file should remain independent from component styling.
+================================================================
+*/
+
+
+/* ================================================================
+   01. BOX SIZING
+   ================================================================ */
+
+html {
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: inherit;
+}
+
+
+/* ================================================================
+   02. DOCUMENT DEFAULTS
+   ================================================================ */
+
+html {
+    min-height: 100%;
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+}
+
+
+/* ================================================================
+   03. ROOT ELEMENTS
+   ================================================================ */
+
+html,
+body {
+    width: 100%;
+}
+
+
+/* ================================================================
+   04. TYPOGRAPHY NORMALIZATION
+   ================================================================ */
+
+body,
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* ================================================================
+   05. REMOVE DEFAULT MARGINS
+   ================================================================ */
+
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+figure,
+figcaption,
+dl,
+dd,
+ul,
+ol,
+pre {
+    margin: 0;
+}
+
+
+/* ================================================================
+   06. HEADINGS
+   ================================================================ */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: inherit;
+    font-size: inherit;
+}
+
+
+/* ================================================================
+   07. PARAGRAPHS / TEXT
+   ================================================================ */
+
+p {
+    overflow-wrap: break-word;
+}
+
+
+/* ================================================================
+   08. LISTS
+   ================================================================ */
+
+ul,
+ol {
+    padding: 0;
+    list-style: none;
+}
+
+
+/* ================================================================
+   09. LINKS
+   ================================================================ */
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+a:not([class]) {
+    text-decoration-skip-ink: auto;
+}
+
+
+/* ================================================================
+   10. IMAGES
+   ================================================================ */
+
+img,
+picture,
+video,
+canvas,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+img {
+    height: auto;
+}
+
+svg {
+    overflow: visible;
+}
+
+
+/* ================================================================
+   11. FIGURES
+   ================================================================ */
+
+figure {
+    display: block;
+}
+
+
+/* ================================================================
+   12. BUTTONS
+   ================================================================ */
+
+button,
+[type="button"],
+[type="submit"],
+[type="reset"] {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:disabled,
+[type="button"]:disabled,
+[type="submit"]:disabled,
+[type="reset"]:disabled {
+    cursor: not-allowed;
+}
+
+
+/* ================================================================
+   13. FORM CONTROLS
+   ================================================================ */
+
+input,
+textarea,
+select {
+    margin: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: inherit;
+}
+
+textarea {
+    resize: vertical;
+}
+
+select {
+    cursor: pointer;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: inherit;
+    opacity: 1;
+}
+
+
+/* ================================================================
+   14. SEARCH INPUT NORMALIZATION
+   ================================================================ */
+
+input[type="search"] {
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+    display: none;
+}
+
+
+/* ================================================================
+   15. NUMBER INPUT NORMALIZATION
+   ================================================================ */
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+
+/* ================================================================
+   16. FILE INPUT
+   ================================================================ */
+
+input[type="file"] {
+    display: block;
+}
+
+
+/* ================================================================
+   17. CHECKBOX / RADIO
+   ================================================================ */
+
+input[type="checkbox"],
+input[type="radio"] {
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ================================================================
+   18. FIELDSETS
+   ================================================================ */
+
+fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+
+/* ================================================================
+   19. LEGENDS
+   ================================================================ */
+
+legend {
+    padding: 0;
+}
+
+
+/* ================================================================
+   20. TABLES
+   ================================================================ */
+
+table {
+    width: 100%;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+
+/* ================================================================
+   21. QUOTES
+   ================================================================ */
+
+blockquote,
+q {
+    quotes: none;
+}
+
+blockquote::before,
+blockquote::after,
+q::before,
+q::after {
+    content: "";
+}
+
+
+/* ================================================================
+   22. PRE / CODE
+   ================================================================ */
+
+pre,
+code,
+kbd,
+samp {
+    font-family: var(--font-mono);
+}
+
+pre {
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+
+/* ================================================================
+   23. HORIZONTAL RULE
+   ================================================================ */
+
+hr {
+    height: 0;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid currentColor;
+}
+
+
+/* ================================================================
+   24. ADDRESS
+   ================================================================ */
+
+address {
+    font-style: normal;
+}
+
+
+/* ================================================================
+   25. SUMMARY
+   ================================================================ */
+
+summary {
+    cursor: pointer;
+}
+
+
+/* ================================================================
+   26. DETAILS
+   ================================================================ */
+
+details {
+    display: block;
+}
+
+
+/* ================================================================
+   27. HIDDEN
+   ================================================================ */
+
+[hidden] {
+    display: none !important;
+}
+
+
+/* ================================================================
+   28. FOCUS
+   ================================================================ */
+
+/*
+Do not remove focus visibility globally.
+
+Later component layers can provide custom :focus-visible styling.
+*/
+
+:focus {
+    outline: none;
+}
+
+:focus-visible {
+    outline: 2px solid var(--focus-color);
+    outline-offset: 3px;
+}
+
+
+/* ================================================================
+   29. TOUCH INTERACTION
+   ================================================================ */
+
+button,
+a,
+label,
+input,
+select,
+textarea {
+    touch-action: manipulation;
+}
+
+
+/* ================================================================
+   30. MEDIA ELEMENTS
+   ================================================================ */
+
+audio,
+video {
+    vertical-align: middle;
+}
+
+
+/* ================================================================
+   31. IFRAME
+   ================================================================ */
+
+iframe {
+    display: block;
+    max-width: 100%;
+    border: 0;
+}
+
+
+/* ================================================================
+   32. CANVAS
+   ================================================================ */
+
+canvas {
+    display: block;
+}
+
+
+/* ================================================================
+   33. SVG
+   ================================================================ */
+
+svg {
+    flex-shrink: 0;
+}
+
+svg:not([width]):not([height]) {
+    width: 1em;
+    height: 1em;
+}
+
+
+/* ================================================================
+   34. BUTTON TEXT WRAPPING
+   ================================================================ */
+
+button {
+    text-align: center;
+}
+
+
+/* ================================================================
+   35. TEXTAREA
+   ================================================================ */
+
+textarea {
+    min-height: 4rem;
+}
+
+
+/* ================================================================
+   36. USER SELECTION
+   ================================================================ */
+
+::selection {
+    background: var(--selection-background);
+    color: var(--selection-color);
+}
+
+
+/* ================================================================
+   37. SCROLLBAR FOUNDATION
+   ================================================================ */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color:
+        var(--scrollbar-thumb)
+        var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    border: 2px solid transparent;
+    border-radius: var(--radius-pill);
+    background: var(--scrollbar-thumb);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+
+/* ================================================================
+   38. ROOT SCROLLING
+   ================================================================ */
+
+html {
+    overflow-x: hidden;
+}
+
+body {
+    overflow-x: hidden;
+}
+
+
+/* ================================================================
+   39. MOBILE TAP HIGHLIGHT
+   ================================================================ */
+
+button,
+a,
+input,
+textarea,
+select {
+    -webkit-tap-highlight-color: transparent;
+}
+
+
+/* ================================================================
+   40. AUTOFILL NORMALIZATION
+   ================================================================ */
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-primary);
+    box-shadow: 0 0 0 1000px var(--bg-secondary) inset;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+
+/* ================================================================
+   41. DISABLED CONTROLS
+   ================================================================ */
+
+button:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+    opacity: var(--opacity-40);
+}
+
+
+/* ================================================================
+   42. PLACEHOLDER COLOR
+   ================================================================ */
+
+::placeholder {
+    color: var(--input-placeholder);
+}
+
+
+/* ================================================================
+   43. ACCESSIBILITY TEXT FOUNDATION
+   ================================================================ */
+
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+
+/* ================================================================
+   44. SCREEN READER FOCUS REVEAL
+   ================================================================ */
+
+.sr-only:focus,
+.sr-only:focus-visible {
+    position: fixed !important;
+    top: 1rem !important;
+    left: 1rem !important;
+    z-index: var(--z-max) !important;
+
+    width: auto !important;
+    height: auto !important;
+
+    padding: 0.75rem 1rem !important;
+    margin: 0 !important;
+
+    overflow: visible !important;
+    clip: auto !important;
+
+    white-space: normal !important;
+
+    border: 1px solid var(--border-brand) !important;
+    border-radius: var(--radius-md) !important;
+
+    background: var(--bg-elevated-high) !important;
+    color: var(--text-primary) !important;
+
+    box-shadow: var(--shadow-lg) !important;
+}
+
+
+/* ================================================================
+   45. REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+
+/* ================================================================
+   46. HIGH CONTRAST
+   ================================================================ */
+
+@media (prefers-contrast: more) {
+    img,
+    video {
+        border-color: var(--border-strong);
+    }
+}
+
+
+/* ================================================================
+   47. PRINT
+   ================================================================ */
+
+@media print {
+    *,
+    *::before,
+    *::after {
+        background: transparent !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    a,
+    a:visited {
+        color: #000000;
+        text-decoration: underline;
+    }
+
+    img {
+        page-break-inside: avoid;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    p {
+        page-break-after: avoid;
+    }
+}

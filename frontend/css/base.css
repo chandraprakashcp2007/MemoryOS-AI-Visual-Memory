@@ -1,0 +1,991 @@
+
+/*
+================================================================
+ MEMORYOS — PREMIUM BASE STYLES
+ base.css
+================================================================
+
+Global visual foundation for MemoryOS.
+
+Depends on:
+    variables.css
+    reset.css
+
+Responsibilities:
+- global body styling
+- typography defaults
+- page background
+- selection
+- links
+- buttons
+- form controls
+- focus behavior
+- media rendering
+- reusable utility primitives
+- default transitions
+- premium rendering quality
+
+Component-specific styling belongs in later CSS files.
+================================================================
+*/
+
+
+/* ================================================================
+   01. GLOBAL DOCUMENT
+   ================================================================ */
+
+html {
+    min-width: 320px;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: var(--leading-normal);
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+
+    background:
+        var(--gradient-page),
+        var(--gradient-ambient),
+        var(--bg-page);
+
+    color: var(--text-primary);
+
+    font-family: var(--font-body);
+    font-size: var(--font-md);
+    font-weight: var(--weight-regular);
+    line-height: var(--leading-normal);
+
+    letter-spacing: var(--tracking-normal);
+
+    overflow-x: hidden;
+}
+
+
+/* ================================================================
+   02. APPLICATION ROOT
+   ================================================================ */
+
+#app,
+.app-shell {
+    position: relative;
+    min-height: 100vh;
+    isolation: isolate;
+}
+
+
+/* ================================================================
+   03. PAGE RENDERING
+   ================================================================ */
+
+body {
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+}
+
+body::selection {
+    background: var(--selection-background);
+    color: var(--selection-color);
+}
+
+
+/* ================================================================
+   04. HEADINGS
+   ================================================================ */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-heading);
+    text-wrap: balance;
+}
+
+h1 {
+    font-size: var(--font-h1);
+    letter-spacing: var(--tracking-display);
+}
+
+h2 {
+    font-size: var(--font-h2);
+}
+
+h3 {
+    font-size: var(--font-h3);
+}
+
+h4 {
+    font-size: var(--font-h4);
+}
+
+
+/* ================================================================
+   05. BODY TEXT
+   ================================================================ */
+
+p {
+    max-width: 70ch;
+    color: var(--text-secondary);
+    line-height: var(--leading-relaxed);
+}
+
+strong,
+b {
+    color: var(--text-primary);
+    font-weight: var(--weight-semibold);
+}
+
+small {
+    color: var(--text-tertiary);
+    font-size: var(--font-xs);
+}
+
+
+/* ================================================================
+   06. LINKS
+   ================================================================ */
+
+a {
+    color: inherit;
+    text-decoration: none;
+    transition:
+        color var(--duration-normal) var(--ease-standard),
+        opacity var(--duration-normal) var(--ease-standard);
+}
+
+a:hover {
+    color: var(--text-primary);
+}
+
+a:active {
+    opacity: var(--opacity-80);
+}
+
+
+/* ================================================================
+   07. BUTTON FOUNDATION
+   ================================================================ */
+
+button,
+.button {
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: var(--control-md);
+    min-width: var(--min-touch-target);
+
+    gap: 0.55rem;
+
+    border-radius: var(--radius-md);
+
+    color: var(--text-primary);
+
+    font-family: var(--font-body);
+    font-size: var(--font-sm);
+    font-weight: var(--weight-semibold);
+
+    line-height: 1;
+
+    cursor: pointer;
+
+    user-select: none;
+
+    transition:
+        transform var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard),
+        opacity var(--duration-normal) var(--ease-standard),
+        filter var(--duration-normal) var(--ease-standard);
+}
+
+button:hover,
+.button:hover {
+    filter: brightness(var(--hover-brightness));
+}
+
+button:active,
+.button:active {
+    transform: var(--press-scale);
+}
+
+button:disabled,
+.button:disabled,
+button[aria-disabled="true"],
+.button[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: var(--opacity-40);
+    filter: none;
+    transform: none;
+}
+
+
+/* ================================================================
+   08. BUTTON ICON ALIGNMENT
+   ================================================================ */
+
+button svg,
+.button svg {
+    width: var(--icon-md);
+    height: var(--icon-md);
+    flex: 0 0 auto;
+}
+
+
+/* ================================================================
+   09. FORM ELEMENT FOUNDATION
+   ================================================================ */
+
+input,
+textarea,
+select {
+    width: 100%;
+
+    border: 1px solid var(--input-border);
+    border-radius: var(--input-radius);
+
+    background: var(--input-background);
+    color: var(--text-primary);
+
+    font-family: var(--font-body);
+    font-size: var(--font-md);
+    line-height: var(--leading-normal);
+
+    transition:
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard);
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select {
+    min-height: var(--input-height);
+    padding: 0 0.9rem;
+}
+
+textarea {
+    min-height: 8rem;
+    padding: 0.9rem;
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+    border-color: var(--border-visible);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--input-border-focus);
+    background: var(--input-background-focus);
+    box-shadow: var(--focus-ring-soft);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--input-placeholder);
+    opacity: 1;
+}
+
+
+/* ================================================================
+   10. CHECKBOX / RADIO
+   ================================================================ */
+
+input[type="checkbox"],
+input[type="radio"] {
+    width: 1.05rem;
+    height: 1.05rem;
+
+    min-width: 1.05rem;
+    min-height: 1.05rem;
+
+    accent-color: var(--brand-primary);
+
+    cursor: pointer;
+}
+
+
+/* ================================================================
+   11. LABEL
+   ================================================================ */
+
+label {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    font-weight: var(--weight-medium);
+}
+
+
+/* ================================================================
+   12. CODE / MONOSPACE
+   ================================================================ */
+
+code,
+kbd,
+pre,
+samp {
+    font-family: var(--font-mono);
+}
+
+code {
+    padding: 0.15rem 0.35rem;
+    border-radius: var(--radius-xs);
+
+    background: var(--surface-3);
+    color: var(--text-brand);
+
+    font-size: 0.88em;
+}
+
+kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 1.65rem;
+    min-height: 1.55rem;
+
+    padding: 0.2rem 0.4rem;
+
+    border: 1px solid var(--border-default);
+    border-bottom-color: var(--border-strong);
+    border-radius: var(--radius-xs);
+
+    background: var(--surface-2);
+    color: var(--text-tertiary);
+
+    box-shadow:
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        var(--shadow-xs);
+
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+pre {
+    padding: 1rem;
+
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+
+    background: var(--bg-secondary);
+
+    color: var(--text-secondary);
+
+    box-shadow: var(--shadow-sm);
+
+    overflow-x: auto;
+}
+
+
+/* ================================================================
+   13. HORIZONTAL DIVIDER
+   ================================================================ */
+
+hr {
+    width: 100%;
+    border-top-color: var(--border-subtle);
+}
+
+
+/* ================================================================
+   14. MEDIA
+   ================================================================ */
+
+img,
+video,
+canvas,
+iframe {
+    max-width: 100%;
+}
+
+img,
+video {
+    object-fit: cover;
+    object-position: var(--media-object-position);
+}
+
+img {
+    user-select: none;
+}
+
+
+/* ================================================================
+   15. SVG / ICONS
+   ================================================================ */
+
+svg {
+    color: currentColor;
+    stroke-width: 1.8;
+}
+
+svg,
+svg * {
+    vector-effect: non-scaling-stroke;
+}
+
+
+/* ================================================================
+   16. GLOBAL FOCUS
+   ================================================================ */
+
+:focus-visible {
+    outline: var(--focus-visible-outline);
+    outline-offset: var(--focus-visible-outline-offset);
+}
+
+
+/* ================================================================
+   17. SELECTION
+   ================================================================ */
+
+::selection {
+    background: var(--selection-background);
+    color: var(--selection-color);
+}
+
+
+/* ================================================================
+   18. GLOBAL SURFACE UTILITY
+   ================================================================ */
+
+.surface {
+    position: relative;
+
+    background:
+        var(--surface-gradient);
+
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+
+    box-shadow:
+        var(--shadow-inner),
+        var(--shadow-sm);
+}
+
+
+/* ================================================================
+   19. GLASS UTILITY
+   ================================================================ */
+
+.glass {
+    position: relative;
+
+    background:
+        var(--glass-background);
+
+    border: 1px solid var(--glass-border);
+
+    -webkit-backdrop-filter:
+        var(--glass-blur-medium)
+        var(--glass-saturation);
+
+    backdrop-filter:
+        var(--glass-blur-medium)
+        var(--glass-saturation);
+
+    box-shadow:
+        var(--shadow-inner),
+        var(--shadow-md);
+}
+
+
+/* ================================================================
+   20. GLASS STRONG
+   ================================================================ */
+
+.glass-strong {
+    position: relative;
+
+    background:
+        var(--glass-background-strong);
+
+    border: 1px solid var(--glass-border);
+
+    -webkit-backdrop-filter:
+        var(--glass-blur-large)
+        var(--glass-saturation-strong);
+
+    backdrop-filter:
+        var(--glass-blur-large)
+        var(--glass-saturation-strong);
+
+    box-shadow:
+        var(--shadow-inner-strong),
+        var(--shadow-lg);
+}
+
+
+/* ================================================================
+   21. GRADIENT TEXT UTILITY
+   ================================================================ */
+
+.gradient-text {
+    background:
+        var(--gradient-text);
+
+    background-clip: text;
+    -webkit-background-clip: text;
+
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+}
+
+
+/* ================================================================
+   22. BRAND GLOW
+   ================================================================ */
+
+.brand-glow {
+    box-shadow:
+        var(--shadow-brand),
+        var(--shadow-glow);
+}
+
+
+/* ================================================================
+   23. VISUALLY HIDDEN
+   ================================================================ */
+
+.visually-hidden {
+    position: absolute !important;
+
+    width: 1px !important;
+    height: 1px !important;
+
+    padding: 0 !important;
+    margin: -1px !important;
+
+    overflow: hidden !important;
+
+    clip: rect(0, 0, 0, 0) !important;
+
+    white-space: nowrap !important;
+
+    border: 0 !important;
+}
+
+
+/* ================================================================
+   24. FULL WIDTH
+   ================================================================ */
+
+.full-width {
+    width: 100%;
+}
+
+
+/* ================================================================
+   25. FLEX HELPERS
+   ================================================================ */
+
+.flex {
+    display: flex;
+}
+
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.flex-column {
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* ================================================================
+   26. TEXT ALIGNMENT
+   ================================================================ */
+
+.text-left {
+    text-align: left;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+
+/* ================================================================
+   27. TEXT COLORS
+   ================================================================ */
+
+.text-primary {
+    color: var(--text-primary);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+.text-tertiary {
+    color: var(--text-tertiary);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.text-brand {
+    color: var(--text-brand);
+}
+
+.text-success {
+    color: var(--text-success);
+}
+
+.text-warning {
+    color: var(--text-warning);
+}
+
+.text-danger {
+    color: var(--text-danger);
+}
+
+
+/* ================================================================
+   28. NO SELECT
+   ================================================================ */
+
+.no-select {
+    user-select: none;
+}
+
+
+/* ================================================================
+   29. CLICKABLE
+   ================================================================ */
+
+.clickable {
+    cursor: pointer;
+}
+
+
+/* ================================================================
+   30. POINTER EVENTS
+   ================================================================ */
+
+.pointer-none {
+    pointer-events: none;
+}
+
+.pointer-auto {
+    pointer-events: auto;
+}
+
+
+/* ================================================================
+   31. OVERFLOW
+   ================================================================ */
+
+.overflow-hidden {
+    overflow: hidden;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.overflow-visible {
+    overflow: visible;
+}
+
+
+/* ================================================================
+   32. POSITIONING
+   ================================================================ */
+
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.fixed {
+    position: fixed;
+}
+
+.sticky {
+    position: sticky;
+}
+
+
+/* ================================================================
+   33. CONTAINER
+   ================================================================ */
+
+.container {
+    width: min(
+        calc(100% - (var(--page-padding) * 2)),
+        var(--container-2xl)
+    );
+
+    margin-inline: auto;
+}
+
+.container--medium {
+    width: min(
+        calc(100% - (var(--page-padding) * 2)),
+        var(--container-lg)
+    );
+
+    margin-inline: auto;
+}
+
+.container--narrow {
+    width: min(
+        calc(100% - (var(--page-padding) * 2)),
+        var(--container-md)
+    );
+
+    margin-inline: auto;
+}
+
+
+/* ================================================================
+   34. STACK SPACING
+   ================================================================ */
+
+.stack-1 > * + * {
+    margin-top: var(--space-1);
+}
+
+.stack-2 > * + * {
+    margin-top: var(--space-2);
+}
+
+.stack-3 > * + * {
+    margin-top: var(--space-3);
+}
+
+.stack-4 > * + * {
+    margin-top: var(--space-4);
+}
+
+.stack-6 > * + * {
+    margin-top: var(--space-6);
+}
+
+.stack-8 > * + * {
+    margin-top: var(--space-8);
+}
+
+
+/* ================================================================
+   35. SAFE INTERACTION
+   ================================================================ */
+
+.interactive {
+    transition:
+        transform var(--duration-normal) var(--ease-standard),
+        opacity var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.interactive:hover {
+    transform: var(--hover-translate);
+}
+
+.interactive:active {
+    transform: var(--press-scale);
+}
+
+
+/* ================================================================
+   36. DISABLED INTERACTION
+   ================================================================ */
+
+.is-disabled {
+    pointer-events: none;
+    user-select: none;
+    opacity: var(--opacity-40);
+}
+
+
+/* ================================================================
+   37. LOADING STATE
+   ================================================================ */
+
+.is-loading {
+    pointer-events: none;
+    cursor: progress;
+}
+
+
+/* ================================================================
+   38. ERROR STATE
+   ================================================================ */
+
+.has-error {
+    border-color: var(--border-danger);
+}
+
+.has-error:focus,
+.has-error:focus-within {
+    box-shadow:
+        0 0 0 3px rgba(
+            var(--brand-danger-rgb),
+            0.14
+        );
+}
+
+
+/* ================================================================
+   39. SUCCESS STATE
+   ================================================================ */
+
+.has-success {
+    border-color: var(--border-success);
+}
+
+.has-success:focus,
+.has-success:focus-within {
+    box-shadow:
+        0 0 0 3px rgba(
+            var(--brand-success-rgb),
+            0.14
+        );
+}
+
+
+/* ================================================================
+   40. MOBILE BASE
+   ================================================================ */
+
+@media (max-width: 767px) {
+
+    html {
+        font-size: 15px;
+    }
+
+    body {
+        font-size: var(--font-sm);
+    }
+
+    .container,
+    .container--medium,
+    .container--narrow {
+        width: calc(
+            100% - (var(--page-padding-mobile) * 2)
+        );
+    }
+}
+
+
+/* ================================================================
+   41. TABLET BASE
+   ================================================================ */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+
+    .container,
+    .container--medium,
+    .container--narrow {
+        width: calc(
+            100% - (var(--page-padding-tablet) * 2)
+        );
+    }
+}
+
+
+/* ================================================================
+   42. ULTRA-WIDE OPTIMIZATION
+   ================================================================ */
+
+@media (min-width: 1680px) {
+
+    body {
+        font-size: 1.02rem;
+    }
+}
+
+
+/* ================================================================
+   43. REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    html {
+        scroll-behavior: auto;
+    }
+
+    .interactive:hover,
+    .interactive:active {
+        transform: none;
+    }
+}
+
+
+/* ================================================================
+   44. HIGH CONTRAST
+   ================================================================ */
+
+@media (prefers-contrast: more) {
+
+    body {
+        color: var(--text-primary);
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+        border-color: var(--border-visible);
+    }
+}
+
+
+/* ================================================================
+   45. PRINT
+   ================================================================ */
+
+@media print {
+
+    body {
+        background: #ffffff;
+        color: #000000;
+    }
+
+    .glass,
+    .glass-strong,
+    .surface {
+        background: #ffffff;
+        border-color: #cccccc;
+        box-shadow: none;
+    }
+}
+

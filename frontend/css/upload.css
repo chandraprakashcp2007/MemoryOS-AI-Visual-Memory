@@ -1,0 +1,1659 @@
+/*
+================================================================
+ MEMORYOS — PREMIUM UPLOAD SYSTEM
+ upload.css
+================================================================
+
+Responsibilities:
+- Drag and drop area
+- Upload zone visuals
+- Upload interaction states
+- File previews
+- Upload queue
+- Processing progress
+- Success state
+- Error state
+- Duplicate state
+- Upload summary
+- Responsive upload experience
+
+Depends on:
+    variables.css
+    reset.css
+    base.css
+    layout.css
+    components.css
+    cards.css
+    search.css
+
+Animation keyframes belong in:
+    animations.css
+================================================================
+*/
+
+
+/* ================================================================
+   01. UPLOAD ZONE
+   ================================================================ */
+
+.upload-zone {
+    position: relative;
+
+    display: grid;
+    place-items: center;
+
+    width: 100%;
+    min-height: var(--upload-min-height);
+
+    overflow: hidden;
+
+    border:
+        1px dashed
+        rgba(var(--brand-primary-rgb), 0.28);
+
+    border-radius:
+        var(--upload-radius);
+
+    background:
+        radial-gradient(
+            circle at 50% 0%,
+            rgba(var(--brand-primary-rgb), 0.075),
+            transparent 52%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.038),
+            rgba(255, 255, 255, 0.012)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
+        var(--upload-glow);
+
+    cursor: pointer;
+
+    isolation: isolate;
+
+    transition:
+        border-color var(--duration-medium) var(--ease-standard),
+        background-color var(--duration-medium) var(--ease-standard),
+        box-shadow var(--duration-medium) var(--ease-standard),
+        transform var(--duration-medium) var(--ease-spring);
+}
+
+
+/* ================================================================
+   02. UPLOAD ZONE BORDER EFFECT
+   ================================================================ */
+
+.upload-zone::before {
+    position: absolute;
+    inset: 0;
+
+    content: "";
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(var(--brand-primary-rgb), 0.08),
+            transparent 38%,
+            rgba(var(--brand-secondary-rgb), 0.05)
+        );
+
+    opacity: 0;
+
+    pointer-events: none;
+
+    transition:
+        opacity var(--duration-medium) var(--ease-standard);
+}
+
+
+/* ================================================================
+   03. UPLOAD ZONE GLOW
+   ================================================================ */
+
+.upload-zone::after {
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    width: 60%;
+    height: 140%;
+
+    content: "";
+
+    border-radius: var(--radius-circle);
+
+    background:
+        radial-gradient(
+            ellipse,
+            rgba(var(--brand-primary-rgb), 0.11),
+            transparent 70%
+        );
+
+    filter:
+        blur(32px);
+
+    opacity: 0.4;
+
+    transform:
+        translate(-50%, -50%);
+
+    pointer-events:
+        none;
+
+    z-index:
+        var(--z-behind);
+
+    transition:
+        opacity var(--duration-medium) var(--ease-standard),
+        transform var(--duration-medium) var(--ease-smooth);
+}
+
+
+/* ================================================================
+   04. HOVER STATE
+   ================================================================ */
+
+.upload-zone:hover {
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.50);
+
+    background:
+        radial-gradient(
+            circle at 50% 0%,
+            rgba(var(--brand-primary-rgb), 0.11),
+            transparent 54%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.048),
+            rgba(255, 255, 255, 0.015)
+        );
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        var(--shadow-brand);
+
+    transform:
+        translateY(-1px);
+}
+
+.upload-zone:hover::before,
+.upload-zone:hover::after {
+    opacity:
+        1;
+}
+
+.upload-zone:hover::after {
+    transform:
+        translate(-50%, -50%)
+        scale(1.08);
+}
+
+
+/* ================================================================
+   05. KEYBOARD FOCUS
+   ================================================================ */
+
+.upload-zone:focus-visible {
+    border-color:
+        var(--border-brand-strong);
+
+    outline:
+        none;
+
+    box-shadow:
+        var(--focus-shadow),
+        var(--shadow-brand);
+}
+
+
+/* ================================================================
+   06. DRAG ACTIVE STATE
+   ================================================================ */
+
+.upload-zone.is-dragging,
+.upload-zone.drag-over {
+    border-color:
+        var(--brand-primary);
+
+    border-style:
+        solid;
+
+    background:
+        radial-gradient(
+            circle at 50% 35%,
+            rgba(var(--brand-primary-rgb), 0.16),
+            rgba(var(--brand-secondary-rgb), 0.025) 42%,
+            transparent 72%
+        );
+
+    box-shadow:
+        inset 0 0 0 1px rgba(var(--brand-primary-rgb), 0.13),
+        0 0 0 5px rgba(var(--brand-primary-rgb), 0.055),
+        var(--shadow-brand-large);
+
+    transform:
+        scale(1.008);
+}
+
+.upload-zone.is-dragging::before,
+.upload-zone.drag-over::before {
+    opacity:
+        1;
+}
+
+.upload-zone.is-dragging::after,
+.upload-zone.drag-over::after {
+    opacity:
+        1;
+
+    transform:
+        translate(-50%, -50%)
+        scale(1.16);
+}
+
+
+/* ================================================================
+   07. DISABLED STATE
+   ================================================================ */
+
+.upload-zone.is-disabled,
+.upload-zone[aria-disabled="true"] {
+    cursor:
+        not-allowed;
+
+    opacity:
+        var(--opacity-50);
+
+    pointer-events:
+        none;
+
+    transform:
+        none;
+}
+
+
+/* ================================================================
+   08. UPLOAD BACKGROUND
+   ================================================================ */
+
+.upload-zone__background {
+    position: absolute;
+    inset: 0;
+
+    pointer-events:
+        none;
+
+    overflow:
+        hidden;
+
+    border-radius:
+        inherit;
+}
+
+
+/* ================================================================
+   09. UPLOAD GRID
+   ================================================================ */
+
+.upload-zone__grid {
+    position: absolute;
+    inset: 0;
+
+    background-image:
+        linear-gradient(
+            to right,
+            var(--grid-line-color) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            to bottom,
+            var(--grid-line-color) 1px,
+            transparent 1px
+        );
+
+    background-size:
+        var(--grid-size)
+        var(--grid-size);
+
+    mask-image:
+        radial-gradient(
+            circle at center,
+            #000 0%,
+            transparent 72%
+        );
+
+    -webkit-mask-image:
+        radial-gradient(
+            circle at center,
+            #000 0%,
+            transparent 72%
+        );
+
+    opacity:
+        0.55;
+}
+
+
+/* ================================================================
+   10. UPLOAD CONTENT
+   ================================================================ */
+
+.upload-zone__content {
+    position: relative;
+
+    z-index:
+        var(--z-content);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    max-width:
+        34rem;
+
+    padding:
+        2rem 1rem;
+
+    text-align:
+        center;
+
+    pointer-events:
+        none;
+}
+
+.upload-zone__content button {
+    pointer-events:
+        auto;
+}
+
+
+/* ================================================================
+   11. UPLOAD ICON
+   ================================================================ */
+
+.upload-zone__icon {
+    position: relative;
+
+    display: grid;
+    place-items: center;
+
+    width:
+        4.2rem;
+
+    height:
+        4.2rem;
+
+    margin-bottom:
+        1.1rem;
+
+    border:
+        1px solid
+        var(--border-brand);
+
+    border-radius:
+        1.25rem;
+
+    background:
+        var(--gradient-brand-soft);
+
+    color:
+        var(--text-brand);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        var(--shadow-brand);
+
+    transition:
+        transform var(--duration-medium) var(--ease-spring),
+        box-shadow var(--duration-medium) var(--ease-standard);
+}
+
+.upload-zone:hover
+.upload-zone__icon {
+    transform:
+        translateY(-3px)
+        scale(1.04);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        var(--shadow-brand-medium);
+}
+
+.upload-zone.is-dragging
+.upload-zone__icon,
+.upload-zone.drag-over
+.upload-zone__icon {
+    transform:
+        translateY(-5px)
+        scale(1.08);
+}
+
+
+/* ================================================================
+   12. UPLOAD ICON RING
+   ================================================================ */
+
+.upload-zone__icon-ring {
+    position: absolute;
+    inset: -0.35rem;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.15);
+
+    border-radius:
+        1.5rem;
+
+    pointer-events:
+        none;
+}
+
+
+/* ================================================================
+   13. UPLOAD TITLE
+   ================================================================ */
+
+.upload-zone__title {
+    margin:
+        0;
+
+    color:
+        var(--text-primary);
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        1.3rem;
+
+    font-weight:
+        var(--weight-semibold);
+
+    letter-spacing:
+        -0.025em;
+}
+
+
+/* ================================================================
+   14. UPLOAD DESCRIPTION
+   ================================================================ */
+
+.upload-zone__description {
+    margin-top:
+        0.45rem;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-sm);
+
+    line-height:
+        1.6;
+}
+
+
+/* ================================================================
+   15. UPLOAD PRIMARY ACTION
+   ================================================================ */
+
+.upload-zone .primary-button {
+    margin-top:
+        1.1rem;
+
+    pointer-events:
+        auto;
+}
+
+
+/* ================================================================
+   16. UPLOAD META
+   ================================================================ */
+
+.upload-zone__meta {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        0.45rem;
+
+    margin-top:
+        0.85rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.66rem;
+
+    line-height:
+        1.4;
+}
+
+.upload-zone__meta > span {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.28rem;
+}
+
+.upload-zone__meta svg {
+    width:
+        0.7rem;
+
+    height:
+        0.7rem;
+
+    color:
+        var(--text-tertiary);
+}
+
+.upload-zone__separator {
+    opacity:
+        0.45;
+}
+
+
+/* ================================================================
+   17. HIDDEN FILE INPUT
+   ================================================================ */
+
+#fileInput {
+    position:
+        absolute;
+
+    width:
+        1px;
+
+    height:
+        1px;
+
+    opacity:
+        0;
+
+    pointer-events:
+        none;
+}
+
+
+/* ================================================================
+   18. PROCESSING OVERLAY
+   ================================================================ */
+
+.upload-processing {
+    position: absolute;
+    inset: 0;
+
+    z-index:
+        var(--z-floating);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding:
+        2rem;
+
+    background:
+        rgba(5, 6, 8, 0.78);
+
+    -webkit-backdrop-filter:
+        var(--glass-blur-large);
+
+    backdrop-filter:
+        var(--glass-blur-large);
+
+    color:
+        var(--text-primary);
+
+    text-align:
+        center;
+
+    border-radius:
+        inherit;
+}
+
+.upload-processing[hidden] {
+    display:
+        none;
+}
+
+.upload-processing strong {
+    margin-top:
+        1rem;
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        1.05rem;
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.upload-processing > span:not(.upload-processing__spinner) {
+    margin-top:
+        0.35rem;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+}
+
+
+/* ================================================================
+   19. PROCESSING SPINNER
+   ================================================================ */
+
+.upload-processing__spinner {
+    position: relative;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        3.6rem;
+
+    height:
+        3.6rem;
+}
+
+.upload-processing__spinner::before,
+.upload-processing__spinner::after {
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    content:
+        "";
+
+    border-radius:
+        var(--radius-circle);
+}
+
+.upload-processing__spinner::before {
+    border:
+        2px solid
+        rgba(var(--brand-primary-rgb), 0.12);
+}
+
+.upload-processing__spinner::after {
+    border:
+        2px solid
+        transparent;
+
+    border-top-color:
+        var(--brand-primary);
+
+    border-right-color:
+        rgba(var(--brand-secondary-rgb), 0.7);
+}
+
+.upload-processing__spinner span {
+    width:
+        1.1rem;
+
+    height:
+        1.1rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--gradient-brand);
+
+    box-shadow:
+        var(--shadow-glow);
+
+    transform:
+        scale(0.9);
+}
+
+
+/* ================================================================
+   20. UPLOAD PROGRESS
+   ================================================================ */
+
+.upload-processing__progress {
+    width:
+        min(
+            20rem,
+            80%
+        );
+
+    height:
+        0.3rem;
+
+    margin-top:
+        1.1rem;
+
+    overflow:
+        hidden;
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-3);
+}
+
+.upload-processing__progress-bar {
+    width:
+        0%;
+
+    height:
+        100%;
+
+    border-radius:
+        inherit;
+
+    background:
+        var(--gradient-brand);
+
+    box-shadow:
+        0 0 18px
+        rgba(var(--brand-primary-rgb), 0.35);
+
+    transition:
+        width var(--duration-medium) var(--ease-smooth);
+}
+
+
+/* ================================================================
+   21. UPLOAD QUEUE
+   ================================================================ */
+
+.upload-queue {
+    display:
+        flex;
+    flex-direction:
+        column;
+
+    width:
+        100%;
+
+    margin-top:
+        1rem;
+
+    gap:
+        0.5rem;
+}
+
+
+/* ================================================================
+   22. UPLOAD QUEUE ITEM
+   ================================================================ */
+
+.upload-queue__item {
+    position:
+        relative;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        3.5rem
+        minmax(0, 1fr)
+        auto;
+
+    align-items:
+        center;
+
+    min-height:
+        4rem;
+
+    gap:
+        0.75rem;
+
+    padding:
+        0.55rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-1);
+
+    overflow:
+        hidden;
+
+    transition:
+        border-color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-spring);
+}
+
+.upload-queue__item:hover {
+    border-color:
+        var(--border-visible);
+
+    background:
+        var(--surface-2);
+
+    transform:
+        translateY(-1px);
+}
+
+
+/* ================================================================
+   23. QUEUE THUMBNAIL
+   ================================================================ */
+
+.upload-queue__thumbnail {
+    width:
+        3.5rem;
+
+    height:
+        3rem;
+
+    overflow:
+        hidden;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        var(--bg-secondary);
+}
+
+.upload-queue__thumbnail img {
+    width:
+        100%;
+
+    height:
+        100%;
+
+    object-fit:
+        cover;
+}
+
+
+/* ================================================================
+   24. QUEUE CONTENT
+   ================================================================ */
+
+.upload-queue__content {
+    min-width:
+        0;
+}
+
+.upload-queue__filename {
+    display:
+        block;
+
+    overflow:
+        hidden;
+
+    color:
+        var(--text-primary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    line-height:
+        1.4;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+.upload-queue__status {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.32rem;
+
+    margin-top:
+        0.25rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.64rem;
+}
+
+.upload-queue__status-dot {
+    width:
+        0.34rem;
+
+    height:
+        0.34rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--text-muted);
+}
+
+
+/* ================================================================
+   25. QUEUE STATUS VARIANTS
+   ================================================================ */
+
+.upload-queue__item.is-processing
+.upload-queue__status {
+    color:
+        var(--text-brand);
+}
+
+.upload-queue__item.is-processing
+.upload-queue__status-dot {
+    background:
+        var(--status-processing);
+
+    box-shadow:
+        var(--status-processing-glow);
+}
+
+.upload-queue__item.is-success
+.upload-queue__status {
+    color:
+        var(--text-success);
+}
+
+.upload-queue__item.is-success
+.upload-queue__status-dot {
+    background:
+        var(--status-online);
+
+    box-shadow:
+        var(--status-online-glow);
+}
+
+.upload-queue__item.is-error
+.upload-queue__status {
+    color:
+        var(--text-danger);
+}
+
+.upload-queue__item.is-error
+.upload-queue__status-dot {
+    background:
+        var(--status-error);
+
+    box-shadow:
+        var(--status-error-glow);
+}
+
+.upload-queue__item.is-duplicate
+.upload-queue__status {
+    color:
+        var(--text-warning);
+}
+
+.upload-queue__item.is-duplicate
+.upload-queue__status-dot {
+    background:
+        var(--status-warning);
+}
+
+
+/* ================================================================
+   26. QUEUE ACTION
+   ================================================================ */
+
+.upload-queue__action {
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        var(--control-sm);
+
+    height:
+        var(--control-sm);
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-md);
+
+    color:
+        var(--text-muted);
+
+    transition:
+        color var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard),
+        background-color var(--duration-fast) var(--ease-standard);
+}
+
+.upload-queue__action:hover {
+    border-color:
+        var(--border-danger);
+
+    background:
+        var(--surface-danger);
+
+    color:
+        var(--text-danger);
+}
+
+.upload-queue__action svg {
+    width:
+        0.78rem;
+
+    height:
+        0.78rem;
+}
+
+
+/* ================================================================
+   27. UPLOAD SUMMARY
+   ================================================================ */
+
+.upload-summary {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(0, 1fr)
+        );
+
+    gap:
+        0.6rem;
+
+    width:
+        100%;
+
+    margin-top:
+        1rem;
+}
+
+.upload-summary__item {
+    padding:
+        0.8rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-1);
+
+    text-align:
+        center;
+}
+
+.upload-summary__value {
+    display:
+        block;
+
+    color:
+        var(--text-primary);
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        1.2rem;
+
+    font-weight:
+        var(--weight-semibold);
+
+    line-height:
+        1;
+}
+
+.upload-summary__label {
+    display:
+        block;
+
+    margin-top:
+        0.3rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.62rem;
+
+    font-weight:
+        var(--weight-medium);
+}
+
+.upload-summary__item--success {
+    border-color:
+        var(--border-success);
+
+    background:
+        var(--surface-success);
+}
+
+.upload-summary__item--success
+.upload-summary__value {
+    color:
+        var(--text-success);
+}
+
+.upload-summary__item--error {
+    border-color:
+        var(--border-danger);
+
+    background:
+        var(--surface-danger);
+}
+
+.upload-summary__item--error
+.upload-summary__value {
+    color:
+        var(--text-danger);
+}
+
+.upload-summary__item--warning {
+    border-color:
+        var(--border-warning);
+
+    background:
+        var(--surface-warning);
+}
+
+.upload-summary__item--warning
+.upload-summary__value {
+    color:
+        var(--text-warning);
+}
+
+
+/* ================================================================
+   28. UPLOAD RESULT MESSAGE
+   ================================================================ */
+
+.upload-result-message {
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    gap:
+        0.7rem;
+
+    width:
+        100%;
+
+    margin-top:
+        1rem;
+
+    padding:
+        0.85rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-secondary);
+
+    font-size:
+        var(--font-xs);
+
+    line-height:
+        1.55;
+}
+
+.upload-result-message__icon {
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    width:
+        2rem;
+
+    height:
+        2rem;
+
+    flex:
+        0 0 auto;
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+}
+
+.upload-result-message--success {
+    border-color:
+        var(--border-success);
+
+    background:
+        var(--surface-success);
+}
+
+.upload-result-message--success
+.upload-result-message__icon {
+    background:
+        rgba(var(--brand-success-rgb), 0.14);
+
+    color:
+        var(--text-success);
+}
+
+.upload-result-message--error {
+    border-color:
+        var(--border-danger);
+
+    background:
+        var(--surface-danger);
+}
+
+.upload-result-message--error
+.upload-result-message__icon {
+    background:
+        rgba(var(--brand-danger-rgb), 0.14);
+
+    color:
+        var(--text-danger);
+}
+
+
+/* ================================================================
+   29. UPLOAD EMPTY QUEUE
+   ================================================================ */
+
+.upload-queue:empty,
+.upload-summary:empty {
+    display:
+        none;
+}
+
+
+/* ================================================================
+   30. DRAG DROP INSTRUCTIONS
+   ================================================================ */
+
+.upload-zone__drop-label {
+    display:
+        none;
+
+    color:
+        var(--text-brand);
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        1.15rem;
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.upload-zone.is-dragging
+.upload-zone__drop-label,
+.upload-zone.drag-over
+.upload-zone__drop-label {
+    display:
+        block;
+}
+
+.upload-zone.is-dragging
+.upload-zone__title,
+.upload-zone.drag-over
+.upload-zone__title {
+    display:
+        none;
+}
+
+
+/* ================================================================
+   31. UPLOAD VALIDATION MESSAGE
+   ================================================================ */
+
+.upload-validation {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        0.5rem;
+
+    margin-top:
+        0.55rem;
+
+    color:
+        var(--text-danger);
+
+    font-size:
+        0.68rem;
+}
+
+.upload-validation svg {
+    width:
+        0.75rem;
+
+    height:
+        0.75rem;
+}
+
+
+/* ================================================================
+   32. UPLOAD SUCCESS STATE
+   ================================================================ */
+
+.upload-zone.is-complete {
+    border-style:
+        solid;
+
+    border-color:
+        var(--border-success);
+
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(var(--brand-success-rgb), 0.08),
+            transparent 60%
+        );
+}
+
+.upload-zone.is-complete
+.upload-zone__icon {
+    border-color:
+        var(--border-success);
+
+    background:
+        var(--surface-success);
+
+    color:
+        var(--text-success);
+}
+
+
+/* ================================================================
+   33. UPLOAD ERROR STATE
+   ================================================================ */
+
+.upload-zone.is-error {
+    border-style:
+        solid;
+
+    border-color:
+        var(--border-danger);
+
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(var(--brand-danger-rgb), 0.06),
+            transparent 60%
+        );
+}
+
+
+/* ================================================================
+   34. UPLOAD QUEUE PROGRESS
+   ================================================================ */
+
+.upload-queue__progress {
+    position:
+        absolute;
+
+    right:
+        0;
+
+    bottom:
+        0;
+
+    left:
+        0;
+
+    height:
+        2px;
+
+    overflow:
+        hidden;
+
+    background:
+        var(--surface-2);
+}
+
+.upload-queue__progress-bar {
+    width:
+        0%;
+
+    height:
+        100%;
+
+    background:
+        var(--gradient-brand);
+
+    transition:
+        width var(--duration-medium) var(--ease-smooth);
+}
+
+.upload-queue__item.is-success
+.upload-queue__progress-bar {
+    background:
+        var(--brand-success);
+}
+
+.upload-queue__item.is-error
+.upload-queue__progress-bar {
+    background:
+        var(--brand-danger);
+}
+
+
+/* ================================================================
+   35. RESPONSIVE — TABLET
+   ================================================================ */
+
+@media (max-width: 767px) {
+
+    .upload-zone {
+        min-height:
+            var(--upload-min-height-mobile);
+    }
+
+    .upload-zone__content {
+        padding:
+            1.5rem 1rem;
+    }
+
+    .upload-zone__icon {
+        width:
+            3.75rem;
+
+        height:
+            3.75rem;
+
+        border-radius:
+            1.1rem;
+    }
+
+    .upload-zone__title {
+        font-size:
+            1.15rem;
+    }
+
+    .upload-zone__description {
+        font-size:
+            var(--font-xs);
+    }
+
+    .upload-summary {
+        grid-template-columns:
+            repeat(
+                3,
+                minmax(0, 1fr)
+            );
+    }
+
+    .upload-queue__item {
+        grid-template-columns:
+            3rem
+            minmax(0, 1fr)
+            auto;
+    }
+
+    .upload-queue__thumbnail {
+        width:
+            3rem;
+
+        height:
+            2.7rem;
+    }
+}
+
+
+/* ================================================================
+   36. RESPONSIVE — SMALL MOBILE
+   ================================================================ */
+
+@media (max-width: 479px) {
+
+    .upload-zone {
+        min-height:
+            13.5rem;
+    }
+
+    .upload-zone__meta {
+        max-width:
+            18rem;
+    }
+
+    .upload-zone__separator {
+        display:
+            none;
+    }
+
+    .upload-zone__meta {
+        flex-direction:
+            column;
+
+        gap:
+            0.3rem;
+    }
+
+    .upload-summary {
+        grid-template-columns:
+            1fr;
+    }
+
+    .upload-summary__item {
+        min-height:
+            4rem;
+
+        display:
+            flex;
+
+        align-items:
+            center;
+
+        justify-content:
+            space-between;
+
+        text-align:
+            left;
+    }
+
+    .upload-summary__label {
+        margin-top:
+            0;
+    }
+
+    .upload-processing__progress {
+        width:
+            90%;
+    }
+
+    .upload-queue__item {
+        grid-template-columns:
+            2.8rem
+            minmax(0, 1fr)
+            2rem;
+    }
+}
+
+
+/* ================================================================
+   37. REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .upload-zone,
+    .upload-zone__icon,
+    .upload-queue__item,
+    .upload-processing__progress-bar {
+        transition:
+            none;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.is-dragging,
+    .upload-zone.drag-over {
+        transform:
+            none;
+    }
+}

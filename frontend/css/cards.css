@@ -1,0 +1,1720 @@
+/*
+================================================================
+ MEMORYOS — PREMIUM MEMORY CARD SYSTEM
+ cards.css
+================================================================
+
+Memory/result cards for the MemoryOS AI experience.
+
+Depends on:
+    variables.css
+    reset.css
+    base.css
+    layout.css
+    components.css
+
+Responsibilities:
+- memory cards
+- image preview area
+- card overlays
+- category badges
+- confidence indicators
+- metadata
+- entity chips
+- match explanation
+- card actions
+- search result states
+- hover depth
+- responsive card behavior
+
+This file intentionally does not define keyframes.
+Animation definitions live in animations.css.
+================================================================
+*/
+
+
+/* ================================================================
+   01. MEMORY GRID FOUNDATION
+   ================================================================ */
+
+.memory-grid {
+    width: 100%;
+    align-items: start;
+}
+
+
+/* ================================================================
+   02. MEMORY CARD
+   ================================================================ */
+
+.memory-card {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+
+    overflow: hidden;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--card-radius);
+
+    background:
+        var(--surface-gradient);
+
+    box-shadow:
+        var(--shadow-inner);
+
+    isolation: isolate;
+
+    transform:
+        translateZ(0);
+
+    transition:
+        transform var(--duration-medium) var(--ease-spring),
+        border-color var(--duration-normal) var(--ease-standard),
+        box-shadow var(--duration-medium) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard);
+}
+
+
+/* ================================================================
+   03. CARD HOVER
+   ================================================================ */
+
+.memory-card:hover {
+    border-color:
+        var(--card-hover-border);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.060),
+            rgba(255, 255, 255, 0.018)
+        );
+
+    box-shadow:
+        var(--shadow-inner),
+        var(--card-hover-shadow);
+
+    transform:
+        var(--card-hover-translate)
+        scale(var(--card-hover-scale));
+}
+
+.memory-card:focus-within {
+    border-color:
+        var(--border-brand);
+
+    box-shadow:
+        var(--shadow-inner),
+        var(--focus-shadow);
+}
+
+
+/* ================================================================
+   04. CARD TOP ACCENT
+   ================================================================ */
+
+.memory-card::before {
+    position: absolute;
+
+    top: 0;
+    left: 12%;
+
+    width: 76%;
+    height: 1px;
+
+    content: "";
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(var(--brand-primary-rgb), 0.34),
+            rgba(var(--brand-secondary-rgb), 0.18),
+            transparent
+        );
+
+    opacity:
+        0;
+
+    transition:
+        opacity var(--duration-normal) var(--ease-standard);
+
+    z-index:
+        var(--z-content);
+}
+
+.memory-card:hover::before {
+    opacity:
+        1;
+}
+
+
+/* ================================================================
+   05. CARD IMAGE WRAPPER
+   ================================================================ */
+
+.memory-card__media {
+    position: relative;
+
+    width: 100%;
+
+    aspect-ratio:
+        var(--media-ratio-card);
+
+    overflow: hidden;
+
+    background:
+        var(--bg-secondary);
+}
+
+
+/* ================================================================
+   06. CARD IMAGE
+   ================================================================ */
+
+.memory-card__image {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+    object-position: center;
+
+    transition:
+        transform 700ms var(--ease-smooth),
+        filter 500ms var(--ease-standard);
+}
+
+.memory-card:hover .memory-card__image {
+    transform:
+        scale(1.035);
+}
+
+.memory-card__image.is-loading {
+    opacity: 0;
+}
+
+
+/* ================================================================
+   07. IMAGE BACKGROUND
+   ================================================================ */
+
+.memory-card__media::before {
+    position: absolute;
+    inset: 0;
+
+    content: "";
+
+    background:
+        radial-gradient(
+            circle at 20% 20%,
+            rgba(var(--brand-primary-rgb), 0.10),
+            transparent 42%
+        );
+
+    pointer-events: none;
+
+    z-index:
+        var(--z-content);
+}
+
+
+/* ================================================================
+   08. IMAGE BOTTOM GRADIENT
+   ================================================================ */
+
+.memory-card__media::after {
+    position: absolute;
+
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    height: 48%;
+
+    content: "";
+
+    background:
+        linear-gradient(
+            to top,
+            rgba(3, 5, 8, 0.76),
+            rgba(3, 5, 8, 0)
+        );
+
+    pointer-events: none;
+
+    z-index:
+        var(--z-content);
+}
+
+
+/* ================================================================
+   09. CARD IMAGE PLACEHOLDER
+   ================================================================ */
+
+.memory-card__placeholder {
+    position: absolute;
+    inset: 0;
+
+    display: grid;
+    place-items: center;
+
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(var(--brand-primary-rgb), 0.13),
+            transparent 58%
+        );
+
+    color:
+        var(--text-muted);
+}
+
+.memory-card__placeholder svg {
+    width: 2rem;
+    height: 2rem;
+}
+
+
+/* ================================================================
+   10. TOP IMAGE META
+   ================================================================ */
+
+.memory-card__media-top {
+    position: absolute;
+
+    top: 0.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 0.5rem;
+
+    z-index:
+        var(--z-floating);
+}
+
+
+/* ================================================================
+   11. CATEGORY BADGE ON IMAGE
+   ================================================================ */
+
+.memory-card__category {
+    display: inline-flex;
+    align-items: center;
+
+    min-height:
+        var(--badge-height);
+
+    max-width: 65%;
+
+    gap: 0.34rem;
+
+    padding:
+        0 var(--badge-horizontal-padding);
+
+    overflow: hidden;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.11);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        rgba(5, 6, 8, 0.62);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    backdrop-filter:
+        blur(12px);
+
+    color:
+        var(--text-primary);
+
+    font-size:
+        var(--badge-font-size);
+
+    font-weight:
+        var(--weight-semibold);
+
+    line-height:
+        1;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+.memory-card__category svg {
+    width: 0.7rem;
+    height: 0.7rem;
+
+    flex: 0 0 auto;
+
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   12. IMAGE ACTION BUTTON
+   ================================================================ */
+
+.memory-card__media-action {
+    display: grid;
+    place-items: center;
+
+    width:
+        var(--control-sm);
+
+    height:
+        var(--control-sm);
+
+    min-width:
+        var(--control-sm);
+
+    min-height:
+        var(--control-sm);
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.10);
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        rgba(5, 6, 8, 0.56);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    backdrop-filter:
+        blur(12px);
+
+    color:
+        var(--text-secondary);
+
+    opacity:
+        0;
+
+    transform:
+        translateY(-4px);
+
+    transition:
+        opacity var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-spring),
+        background-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard);
+}
+
+.memory-card:hover .memory-card__media-action,
+.memory-card:focus-within .memory-card__media-action {
+    opacity:
+        1;
+
+    transform:
+        translateY(0);
+}
+
+.memory-card__media-action:hover {
+    background:
+        rgba(var(--brand-primary-rgb), 0.18);
+
+    color:
+        var(--text-primary);
+
+    border-color:
+        var(--border-brand);
+}
+
+.memory-card__media-action svg {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+
+/* ================================================================
+   13. CONFIDENCE PILL
+   ================================================================ */
+
+.memory-card__confidence {
+    position: absolute;
+
+    right: 0.75rem;
+    bottom: 0.75rem;
+
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 2rem;
+
+    gap: 0.38rem;
+
+    padding:
+        0.4rem
+        0.62rem;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.11);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        rgba(5, 6, 8, 0.66);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    backdrop-filter:
+        blur(12px);
+
+    color:
+        var(--text-primary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-semibold);
+
+    z-index:
+        var(--z-floating);
+}
+
+.memory-card__confidence-dot {
+    width:
+        0.42rem;
+
+    height:
+        0.42rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        var(--confidence-medium);
+}
+
+.memory-card__confidence--high
+.memory-card__confidence-dot {
+    background:
+        var(--confidence-high);
+
+    box-shadow:
+        var(--status-online-glow);
+}
+
+.memory-card__confidence--medium
+.memory-card__confidence-dot {
+    background:
+        var(--confidence-medium);
+}
+
+.memory-card__confidence--low
+.memory-card__confidence-dot {
+    background:
+        var(--confidence-low);
+}
+
+
+/* ================================================================
+   14. CARD CONTENT
+   ================================================================ */
+
+.memory-card__content {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+
+    padding:
+        var(--card-padding);
+}
+
+
+/* ================================================================
+   15. CARD HEADER
+   ================================================================ */
+
+.memory-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 0.8rem;
+
+    margin-bottom: 0.55rem;
+}
+
+.memory-card__heading {
+    min-width: 0;
+}
+
+.memory-card__title {
+    display: -webkit-box;
+
+    overflow: hidden;
+
+    color:
+        var(--text-primary);
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        1.06rem;
+
+    font-weight:
+        var(--weight-semibold);
+
+    letter-spacing:
+        -0.022em;
+
+    line-height:
+        var(--leading-snug);
+
+    -webkit-line-clamp:
+        2;
+    line-clamp:
+        2;
+    line-clamp:
+        2;
+
+    /* Standard property for compatibility */
+    line-clamp: 2;
+    line-clamp:
+        2;
+    /* Standard syntax for compatibility */
+    line-clamp: 2;
+
+    -webkit-box-orient:
+        vertical;
+}
+
+.memory-card__title:hover {
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   16. CARD DATE
+   ================================================================ */
+
+.memory-card__date {
+    flex: 0 0 auto;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        var(--font-2xs);
+
+    font-weight:
+        var(--weight-medium);
+
+    white-space:
+        nowrap;
+}
+
+
+/* ================================================================
+   17. CARD SUMMARY
+   ================================================================ */
+
+.memory-card__summary {
+    display: -webkit-box;
+
+    min-height: 2.7rem;
+
+    margin-bottom: 0.85rem;
+
+    overflow: hidden;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        var(--font-xs);
+
+    line-height:
+        1.65;
+
+    -webkit-line-clamp:
+        2;
+
+    -webkit-box-orient:
+        vertical;
+}
+
+
+/* ================================================================
+   18. CARD METADATA
+   ================================================================ */
+
+.memory-card__metadata {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 0.4rem;
+
+    min-width: 0;
+}
+
+
+/* ================================================================
+   19. ENTITY CHIP
+   ================================================================ */
+
+.memory-card__entity {
+    display: inline-flex;
+    align-items: center;
+
+    max-width: 100%;
+
+    gap: 0.35rem;
+
+    min-height:
+        1.75rem;
+
+    padding:
+        0 0.56rem;
+
+    overflow: hidden;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-pill);
+
+    background:
+        var(--surface-1);
+
+    color:
+        var(--text-secondary);
+
+    font-size:
+        0.68rem;
+
+    font-weight:
+        var(--weight-medium);
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+
+    transition:
+        border-color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        color var(--duration-normal) var(--ease-standard);
+}
+
+.memory-card__entity:hover {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-primary);
+}
+
+
+/* ================================================================
+   20. ENTITY ICON
+   ================================================================ */
+
+.memory-card__entity-icon {
+    display: grid;
+    place-items: center;
+
+    width:
+        1rem;
+
+    height:
+        1rem;
+
+    border-radius:
+        var(--radius-circle);
+
+    background:
+        rgba(var(--brand-primary-rgb), 0.12);
+
+    color:
+        var(--text-brand);
+}
+
+.memory-card__entity-icon svg {
+    width:
+        0.56rem;
+
+    height:
+        0.56rem;
+}
+
+
+/* ================================================================
+   21. MORE ENTITIES CHIP
+   ================================================================ */
+
+.memory-card__entity--more {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+}
+
+
+/* ================================================================
+   22. CARD DIVIDER
+   ================================================================ */
+
+.memory-card__divider {
+    width:
+        100%;
+
+    height:
+        1px;
+
+    margin:
+        1rem 0;
+
+    background:
+        var(--border-subtle);
+}
+
+
+/* ================================================================
+   23. WHY THIS MATCHED
+   ================================================================ */
+
+.memory-card__match {
+    position: relative;
+
+    padding:
+        0.8rem;
+
+    border:
+        1px solid
+        rgba(var(--brand-primary-rgb), 0.17);
+
+    border-radius:
+        var(--radius-lg);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(var(--brand-primary-rgb), 0.07),
+            rgba(var(--brand-secondary-rgb), 0.025)
+        );
+
+    overflow: hidden;
+}
+
+.memory-card__match::before {
+    position: absolute;
+
+    top: 0;
+    bottom: 0;
+    left: 0;
+
+    width:
+        2px;
+
+    content: "";
+
+    background:
+        var(--gradient-brand);
+}
+
+.memory-card__match-title {
+    display: flex;
+    align-items: center;
+
+    gap: 0.4rem;
+
+    margin-bottom:
+        0.5rem;
+
+    color:
+        var(--text-primary);
+
+    font-size:
+        var(--font-xs);
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.memory-card__match-title svg {
+    width:
+        0.85rem;
+
+    height:
+        0.85rem;
+
+    color:
+        var(--text-brand);
+}
+
+.memory-card__match-list {
+    display: flex;
+    flex-direction: column;
+
+    gap:
+        0.32rem;
+}
+
+.memory-card__match-item {
+    display: flex;
+    align-items: flex-start;
+
+    gap:
+        0.4rem;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        0.68rem;
+
+    line-height:
+        1.45;
+}
+
+.memory-card__match-item svg {
+    width:
+        0.72rem;
+
+    height:
+        0.72rem;
+
+    flex: 0 0 auto;
+
+    margin-top:
+        0.12rem;
+
+    color:
+        var(--text-success);
+}
+
+
+/* ================================================================
+   24. MATCH STATS
+   ================================================================ */
+
+.memory-card__match-stats {
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(0, 1fr)
+        );
+
+    gap:
+        0.4rem;
+
+    margin-top:
+        0.65rem;
+}
+
+.memory-card__match-stat {
+    padding:
+        0.45rem;
+
+    border:
+        1px solid
+        var(--border-subtle);
+
+    border-radius:
+        var(--radius-sm);
+
+    background:
+        var(--surface-1);
+
+    text-align:
+        center;
+}
+
+.memory-card__match-stat-value {
+    display: block;
+
+    color:
+        var(--text-primary);
+
+    font-family:
+        var(--font-display);
+
+    font-size:
+        0.75rem;
+
+    font-weight:
+        var(--weight-semibold);
+}
+
+.memory-card__match-stat-label {
+    display: block;
+
+    margin-top:
+        0.12rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.57rem;
+
+    line-height:
+        1.2;
+}
+
+
+/* ================================================================
+   25. CARD FOOTER
+   ================================================================ */
+
+.memory-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap:
+        0.75rem;
+
+    margin-top:
+        1rem;
+}
+
+
+/* ================================================================
+   26. CARD SOURCE
+   ================================================================ */
+
+.memory-card__source {
+    display: flex;
+    align-items: center;
+
+    min-width: 0;
+
+    gap:
+        0.4rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.66rem;
+}
+
+.memory-card__source svg {
+    width:
+        0.76rem;
+
+    height:
+        0.76rem;
+
+    color:
+        var(--text-tertiary);
+}
+
+.memory-card__source span {
+    overflow: hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+
+/* ================================================================
+   27. OPEN MEMORY ACTION
+   ================================================================ */
+
+.memory-card__open {
+    display: inline-flex;
+    align-items: center;
+
+    gap:
+        0.35rem;
+
+    min-height:
+        var(--control-sm);
+
+    padding-inline:
+        0.6rem;
+
+    border:
+        1px solid
+        transparent;
+
+    border-radius:
+        var(--radius-sm);
+
+    background:
+        transparent;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.66rem;
+
+    font-weight:
+        var(--weight-semibold);
+
+    transition:
+        color var(--duration-normal) var(--ease-standard),
+        background-color var(--duration-normal) var(--ease-standard),
+        border-color var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-spring);
+}
+
+.memory-card__open:hover {
+    border-color:
+        var(--border-brand);
+
+    background:
+        var(--surface-brand);
+
+    color:
+        var(--text-brand);
+
+    transform:
+        translateX(2px);
+}
+
+.memory-card__open svg {
+    width:
+        0.78rem;
+
+    height:
+        0.78rem;
+}
+
+
+/* ================================================================
+   28. FEATURED MEMORY CARD
+   ================================================================ */
+
+.memory-card--featured {
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.20);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(var(--brand-primary-rgb), 0.075),
+            rgba(255, 255, 255, 0.018)
+        );
+
+    box-shadow:
+        var(--shadow-inner),
+        var(--shadow-brand);
+}
+
+.memory-card--featured::before {
+    opacity:
+        0.75;
+}
+
+
+/* ================================================================
+   29. SEARCH MATCH CARD
+   ================================================================ */
+
+.memory-card--match {
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.20);
+}
+
+.memory-card--match .memory-card__title {
+    color:
+        var(--text-primary);
+}
+
+.memory-card--match .memory-card__confidence {
+    border-color:
+        rgba(var(--brand-success-rgb), 0.28);
+}
+
+
+/* ================================================================
+   30. PROCESSING CARD
+   ================================================================ */
+
+.memory-card--processing {
+    border-color:
+        rgba(var(--brand-primary-rgb), 0.22);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(var(--brand-primary-rgb), 0.06),
+            rgba(255, 255, 255, 0.015)
+        );
+}
+
+.memory-card--processing .memory-card__media {
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(var(--brand-primary-rgb), 0.10),
+            var(--bg-secondary)
+        );
+}
+
+
+/* ================================================================
+   31. FAILED CARD
+   ================================================================ */
+
+.memory-card--failed {
+    border-color:
+        rgba(var(--brand-danger-rgb), 0.28);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(var(--brand-danger-rgb), 0.055),
+            rgba(255, 255, 255, 0.015)
+        );
+}
+
+.memory-card--failed .memory-card__category {
+    border-color:
+        rgba(var(--brand-danger-rgb), 0.28);
+
+    color:
+        var(--text-danger);
+}
+
+
+/* ================================================================
+   32. DUPLICATE CARD
+   ================================================================ */
+
+.memory-card--duplicate {
+    border-color:
+        rgba(var(--brand-warning-rgb), 0.28);
+}
+
+.memory-card--duplicate .memory-card__category {
+    border-color:
+        rgba(var(--brand-warning-rgb), 0.28);
+
+    color:
+        var(--text-warning);
+}
+
+
+/* ================================================================
+   33. SKELETON CARD
+   ================================================================ */
+
+.skeleton-card {
+    min-height:
+        24rem;
+
+    padding:
+        0.75rem;
+
+    border-color:
+        var(--border-subtle);
+
+    pointer-events:
+        none;
+}
+
+.skeleton-card .skeleton--image {
+    border-radius:
+        var(--card-image-radius);
+}
+
+.skeleton-card .skeleton--line {
+    margin-top:
+        1rem;
+}
+
+.skeleton-card .skeleton--short {
+    margin-top:
+        0.6rem;
+}
+
+.skeleton-card .skeleton--meta {
+    margin-top:
+        auto;
+
+    margin-bottom:
+        0.5rem;
+}
+
+
+/* ================================================================
+   34. CARD SELECTED STATE
+   ================================================================ */
+
+.memory-card.is-selected {
+    border-color:
+        var(--border-brand-strong);
+
+    box-shadow:
+        0 0 0 1px rgba(var(--brand-primary-rgb), 0.18),
+        var(--shadow-brand-medium);
+}
+
+.memory-card.is-selected::before {
+    opacity:
+        1;
+}
+
+
+/* ================================================================
+   35. CARD FOCUS MODE
+   ================================================================ */
+
+.memory-card.is-focus {
+    z-index:
+        var(--z-floating);
+
+    border-color:
+        var(--border-brand-strong);
+
+    box-shadow:
+        var(--shadow-brand-large);
+
+    transform:
+        translateY(-6px);
+}
+
+
+/* ================================================================
+   36. CARD COMPACT VARIANT
+   ================================================================ */
+
+.memory-card--compact {
+    display: grid;
+
+    grid-template-columns:
+        8rem minmax(0, 1fr);
+
+    min-height:
+        8rem;
+}
+
+.memory-card--compact .memory-card__media {
+    width:
+        8rem;
+
+    aspect-ratio:
+        auto;
+
+    height:
+        100%;
+
+    min-height:
+        8rem;
+}
+
+.memory-card--compact .memory-card__content {
+    padding:
+        1rem;
+}
+
+
+/* ================================================================
+   37. CARD WIDE VARIANT
+   ================================================================ */
+
+.memory-card--wide {
+    display: grid;
+
+    grid-template-columns:
+        minmax(14rem, 0.55fr)
+        minmax(0, 1fr);
+}
+
+.memory-card--wide .memory-card__media {
+    height:
+        100%;
+
+    aspect-ratio:
+        auto;
+
+    min-height:
+        18rem;
+}
+
+.memory-card--wide .memory-card__content {
+    justify-content:
+        center;
+
+    padding:
+        var(--card-padding-large);
+}
+
+
+/* ================================================================
+   38. CARD IMAGE ZOOM BUTTON
+   ================================================================ */
+
+.memory-card__zoom {
+    position: absolute;
+
+    right:
+        0.75rem;
+
+    bottom:
+        0.75rem;
+
+    display: grid;
+    place-items: center;
+
+    width:
+        var(--control-sm);
+
+    height:
+        var(--control-sm);
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.11);
+
+    border-radius:
+        var(--radius-md);
+
+    background:
+        rgba(5, 6, 8, 0.58);
+
+    -webkit-backdrop-filter:
+        blur(12px);
+
+    backdrop-filter:
+        blur(12px);
+
+    color:
+        var(--text-primary);
+
+    opacity:
+        0;
+
+    transform:
+        translateY(4px);
+
+    transition:
+        opacity var(--duration-normal) var(--ease-standard),
+        transform var(--duration-normal) var(--ease-spring),
+        border-color var(--duration-normal) var(--ease-standard);
+
+    z-index:
+        var(--z-floating);
+}
+
+.memory-card:hover .memory-card__zoom {
+    opacity:
+        1;
+
+    transform:
+        translateY(0);
+}
+
+.memory-card__zoom:hover {
+    border-color:
+        var(--border-brand);
+
+    color:
+        var(--text-brand);
+}
+
+.memory-card__zoom svg {
+    width:
+        0.82rem;
+
+    height:
+        0.82rem;
+}
+
+
+/* ================================================================
+   39. CARD META ROW
+   ================================================================ */
+
+.memory-card__meta-row {
+    display: flex;
+    align-items: center;
+
+    min-width:
+        0;
+
+    gap:
+        0.7rem;
+
+    color:
+        var(--text-muted);
+
+    font-size:
+        0.66rem;
+}
+
+.memory-card__meta-item {
+    display: inline-flex;
+    align-items: center;
+
+    min-width:
+        0;
+
+    gap:
+        0.28rem;
+}
+
+.memory-card__meta-item svg {
+    width:
+        0.72rem;
+
+    height:
+        0.72rem;
+
+    flex: 0 0 auto;
+}
+
+
+/* ================================================================
+   40. CATEGORY COLOR VARIANTS
+   ================================================================ */
+
+.memory-card[data-category="shopping"]
+.memory-card__category {
+    color:
+        #b9afff;
+}
+
+.memory-card[data-category="receipt"]
+.memory-card__category {
+    color:
+        #80e8b4;
+}
+
+.memory-card[data-category="education"]
+.memory-card__category {
+    color:
+        #86c8ff;
+}
+
+.memory-card[data-category="code"]
+.memory-card__category {
+    color:
+        #a9e8ff;
+}
+
+.memory-card[data-category="finance"]
+.memory-card__category {
+    color:
+        #ffd17d;
+}
+
+.memory-card[data-category="travel"]
+.memory-card__category {
+    color:
+        #8ce5dd;
+}
+
+.memory-card[data-category="social"]
+.memory-card__category {
+    color:
+        #ff9fba;
+}
+
+
+/* ================================================================
+   41. RESPONSIVE — TABLET
+   ================================================================ */
+
+@media (max-width: 1023px) {
+
+    .memory-card__match-stats {
+        grid-template-columns:
+            repeat(
+                3,
+                minmax(0, 1fr)
+            );
+    }
+}
+
+
+/* ================================================================
+   42. RESPONSIVE — MOBILE
+   ================================================================ */
+
+@media (max-width: 767px) {
+
+    .memory-card:hover {
+        transform:
+            translateY(-2px);
+    }
+
+    .memory-card__media-action,
+    .memory-card__zoom {
+        opacity:
+            1;
+
+        transform:
+            none;
+    }
+
+    .memory-card__content {
+        padding:
+            1.05rem;
+    }
+
+    .memory-card__title {
+        font-size:
+            1rem;
+    }
+
+    .memory-card__match {
+        padding:
+            0.72rem;
+    }
+
+    .memory-card__confidence {
+        right:
+            0.6rem;
+
+        bottom:
+            0.6rem;
+    }
+
+    .memory-card--compact {
+        grid-template-columns:
+            6.5rem minmax(0, 1fr);
+    }
+
+    .memory-card--compact .memory-card__media {
+        width:
+            6.5rem;
+
+        min-height:
+            7rem;
+    }
+
+    .memory-card--wide {
+        grid-template-columns:
+            1fr;
+    }
+
+    .memory-card--wide .memory-card__media {
+        min-height:
+            12rem;
+    }
+}
+
+
+/* ================================================================
+   43. RESPONSIVE — SMALL MOBILE
+   ================================================================ */
+
+@media (max-width: 479px) {
+
+    .memory-card__header {
+        flex-direction:
+            column;
+    }
+
+    .memory-card__date {
+        order:
+            -1;
+    }
+
+    .memory-card__match-stats {
+        grid-template-columns:
+            1fr;
+    }
+
+    .memory-card__footer {
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+    }
+
+    .memory-card__open {
+        width:
+            100%;
+
+        justify-content:
+            center;
+    }
+
+    .memory-card--compact {
+        display:
+            flex;
+    }
+
+    .memory-card--compact .memory-card__media {
+        width:
+            100%;
+
+        height:
+            auto;
+
+        min-height:
+            11rem;
+
+        aspect-ratio:
+            var(--media-ratio-card);
+    }
+}
+
+
+/* ================================================================
+   44. REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .memory-card,
+    .memory-card__image,
+    .memory-card__media-action,
+    .memory-card__zoom,
+    .memory-card__open {
+        transition:
+            none;
+    }
+
+    .memory-card:hover,
+    .memory-card.is-focus {
+        transform:
+            none;
+    }
+}
