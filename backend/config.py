@@ -186,6 +186,22 @@ class Settings(BaseSettings):
     )
 
     # ========================================================================
+    # CLOUD / IDENTITY
+    # ========================================================================
+
+    cloud_mode: bool = Field(default=False, validation_alias="MEMORYOS_CLOUD_MODE")
+    storage_backend: str = Field(default="local", validation_alias="MEMORYOS_STORAGE_BACKEND")
+    supabase_url: str = Field(default="", validation_alias="SUPABASE_URL")
+    supabase_service_role_key: str = Field(default="", validation_alias="SUPABASE_SERVICE_ROLE_KEY")
+    supabase_storage_bucket: str = Field(default="memoryos-private", validation_alias="SUPABASE_STORAGE_BUCKET")
+    auth_secret: str = Field(default="", validation_alias="MEMORYOS_AUTH_SECRET")
+    auth_token_ttl_hours: int = Field(default=168, validation_alias="MEMORYOS_AUTH_TOKEN_TTL_HOURS", ge=1, le=24 * 90)
+    vector_backend: str = Field(default="pgvector", validation_alias="MEMORYOS_VECTOR_BACKEND")
+    vector_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2", validation_alias="MEMORYOS_VECTOR_MODEL")
+    vector_dimension: int = Field(default=384, validation_alias="MEMORYOS_VECTOR_DIMENSION", ge=1, le=4096)
+    worker_max_attempts: int = Field(default=5, validation_alias="MEMORYOS_WORKER_MAX_ATTEMPTS", ge=1, le=20)
+
+    # ========================================================================
     # UPLOADS
     # ========================================================================
 
@@ -211,12 +227,12 @@ class Settings(BaseSettings):
     )
 
     allowed_image_extensions: str = Field(
-        default=".jpg,.jpeg,.png,.webp,.bmp,.tiff,.tif",
+        default=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif",
         description="Allowed image extensions.",
     )
 
     allowed_image_mime_types: str = Field(
-        default=("image/jpeg," "image/png," "image/webp," "image/bmp," "image/tiff"),
+        default=("image/jpeg," "image/png," "image/webp," "image/gif," "image/bmp," "image/tiff"),
         description="Allowed image MIME types.",
     )
 
@@ -735,6 +751,8 @@ class Settings(BaseSettings):
 
         secret_fields = {
             "gemini_api_key",
+            "supabase_service_role_key",
+            "auth_secret",
         }
 
         for field_name in secret_fields:

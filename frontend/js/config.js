@@ -72,9 +72,12 @@
      * No trailing slash.
      */
 
+    // A non-Vite/legacy build may set this value before loading this file.
+    // Never point a deployed visitor at either their own machine or the
+    // frontend origin when no API has been configured.
     const DEFAULT_API_BASE_URL = isLocalhost
         ? "http://127.0.0.1:8000"
-        : window.location.origin;
+        : "";
 
     const API_BASE_URL =
         window.MEMORYOS_API_BASE_URL ||

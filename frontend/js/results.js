@@ -338,7 +338,10 @@
          * http://127.0.0.1:8000
          */
 
-        return "http://127.0.0.1:8000";
+        const localHostnames = ["localhost", "127.0.0.1", "[::1]"];
+        return localHostnames.includes(window.location.hostname)
+            ? "http://127.0.0.1:8000"
+            : "";
     }
 
     function resolveImageUrl(rawImage, memoryId) {

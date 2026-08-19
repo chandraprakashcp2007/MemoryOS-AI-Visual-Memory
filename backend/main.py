@@ -121,6 +121,43 @@ def ensure_directories() -> None:
         )
 
 
+def validate_production_configuration() -> None:
+    """Reject the old laptop-only architecture before it can serve traffic."""
+    if ENVIRONMENT != "production":
+        return
+
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    storage_backend = os.getenv("MEMORYOS_STORAGE_BACKEND", "").strip().lower()
+    cors_origins = _parse_cors_origins()
+    missing: list[str] = []
+
+    if not database_url or database_url.startswith("sqlite"):
+        missing.append("DATABASE_URL must be a managed PostgreSQL URL (not SQLite)")
+    if storage_backend != "supabase":
+        missing.append("MEMORYOS_STORAGE_BACKEND must be 'supabase' for this deployment")
+    if storage_backend == "supabase":
+        if not os.getenv("SUPABASE_URL", "").strip():
+            missing.append("SUPABASE_URL")
+        if not os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip():
+            missing.append("SUPABASE_SERVICE_ROLE_KEY")
+    if not os.getenv("MEMORYOS_CLOUD_MODE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        missing.append("MEMORYOS_CLOUD_MODE=true")
+    if not os.getenv("MEMORYOS_AUTH_SECRET", "").strip():
+        missing.append("MEMORYOS_AUTH_SECRET")
+    if os.getenv("MEMORYOS_VECTOR_BACKEND", "pgvector").strip().lower() != "pgvector":
+        missing.append("MEMORYOS_VECTOR_BACKEND=pgvector")
+    if not os.getenv("MEMORYOS_CORS_ORIGINS", "").strip():
+        missing.append("MEMORYOS_CORS_ORIGINS must name the deployed frontend origin")
+    elif "*" in cors_origins:
+        missing.append("MEMORYOS_CORS_ORIGINS must not contain '*'")
+
+    if missing:
+        raise RuntimeError(
+            "Unsafe production configuration: " + "; ".join(missing) + ". "
+            "MemoryOS refuses to start with device-local persistence in production."
+        )
+
+
 # ============================================================================
 # DATABASE INITIALIZATION
 # ============================================================================
@@ -139,6 +176,8 @@ def initialize_database() -> None:
 
         # Import models so all ORM tables are registered.
         from backend import models  # noqa: F401
+        if os.getenv("MEMORYOS_CLOUD_MODE", "").strip().lower() in {"1", "true", "yes", "on"}:
+            from backend import cloud_models  # noqa: F401
 
         Base.metadata.create_all(bind=engine)
 
@@ -172,7 +211,10 @@ def _parse_cors_origins() -> list[str]:
             "http://127.0.0.1:8000",
         ]
 
-    return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    if ENVIRONMENT == "production" and "*" in origins:
+        raise RuntimeError("MEMORYOS_CORS_ORIGINS must not contain '*' in production.")
+    return origins
 
 
 CORS_ORIGINS = _parse_cors_origins()
@@ -316,13 +358,18 @@ async def lifespan(
 
     try:
 
+        validate_production_configuration()
+
         # ------------------------------------------------------------
         # DIRECTORIES
         # ------------------------------------------------------------
 
-        ensure_directories()
-
-        logger.info("Runtime directories ready.")
+        cloud_mode = os.getenv("MEMORYOS_CLOUD_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+        if not cloud_mode:
+            ensure_directories()
+            logger.info("Local runtime directories ready.")
+        else:
+            logger.info("Cloud mode: durable storage is external; no memory directories created.")
 
         # ------------------------------------------------------------
         # DATABASE
@@ -368,6 +415,15 @@ async def lifespan(
 def _register_routers(
     application: FastAPI,
 ) -> None:
+
+    # Cloud mode deliberately mounts a replacement API before any legacy
+    # filesystem route.  The old routes remain available for local migration
+    # only and cannot become a production source of truth.
+    if os.getenv("MEMORYOS_CLOUD_MODE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        from backend.api.cloud import router as cloud_router
+        application.include_router(cloud_router)
+        logger.info("Registered router: Cloud persistence")
+        return
 
     # ------------------------------------------------------------------------
     # HEALTH

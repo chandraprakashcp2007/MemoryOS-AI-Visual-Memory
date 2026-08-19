@@ -3209,3 +3209,11 @@ button:not(:disabled):active {
   }
 
 }
+/* Cloud account entry is intentionally compact and touch-first. */
+.auth-screen{min-height:100dvh;display:grid;place-items:center;padding:max(24px,env(safe-area-inset-top)) 20px;background:var(--bg,#10131a)}
+.auth-card{width:min(100%,430px);padding:32px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:22px;background:var(--panel,#181d27);box-shadow:0 24px 80px rgba(0,0,0,.25)}
+.auth-card h1{margin:10px 0}.auth-card form{display:grid;gap:14px;margin-top:24px}.auth-card label{display:grid;gap:7px;font-size:.9rem}.auth-card input{min-height:46px;border-radius:10px;padding:0 12px;border:1px solid var(--border,rgba(255,255,255,.2));background:transparent;color:inherit}.auth-card .primary-button{justify-content:center;min-height:46px}.auth-error{color:#f87171;margin:0}.text-button{margin-top:16px;background:none;border:0;color:var(--accent,#8ab4ff);font:inherit;cursor:pointer}
+.access-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(3,5,9,.72);backdrop-filter:blur(10px)}
+.access-dialog{width:min(100%,500px);padding:32px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:22px;background:var(--panel,#181d27);box-shadow:0 24px 80px rgba(0,0,0,.38)}
+.access-dialog h2{margin:10px 0}.access-dialog>p{color:var(--muted,#9aa3b2);line-height:1.55}.access-dialog .access-privacy{margin-top:16px;font-size:.88rem}.access-actions{display:grid;gap:8px;margin-top:24px}.access-actions .primary-button{justify-content:center;min-height:46px}.access-actions .text-button{margin-top:0;min-height:38px}.access-note{margin:16px 0 0;color:var(--muted,#9aa3b2);font-size:.78rem;line-height:1.5;text-align:center}.camera-button{position:relative;z-index:2}
+@media (max-width:480px){.access-dialog{padding:24px 20px;border-radius:18px}.access-backdrop{align-items:end;padding:12px}.access-actions .text-button{font-size:.92rem}}

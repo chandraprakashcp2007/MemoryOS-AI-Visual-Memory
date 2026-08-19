@@ -33,10 +33,104 @@ import {
 
 import "./App.css";
 
-const API = "http://127.0.0.1:8000";
+// Vite substitutes this value at build time.  Never fall back to localhost in
+// a deployed build: that would make every visitor call their own device.
+const configuredApi = String(import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
+const isLocalBrowser = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const API = configuredApi || (isLocalBrowser ? "http://127.0.0.1:8000" : "");
+const SESSION_TOKEN_KEY = "memoryos-session-token";
+const SCREENSHOT_ACCESS_KEY = "memoryos-screenshot-access-ui";
+const SCREENSHOT_DIRECTORY_DB = "memoryos-screenshot-directory";
+const SCREENSHOT_DIRECTORY_STORE = "handles";
+const SCREENSHOT_DIRECTORY_KEY = "selected-directory";
+const DIRECTORY_BATCH_SIZE = 20;
+const CLOUD_AUTH_ENABLED = String(import.meta.env.VITE_CLOUD_AUTH || "").toLowerCase() === "true";
+
+function screenshotDirectoryStore(mode, value) {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { resolve(null); return; }
+    const request = window.indexedDB.open(SCREENSHOT_DIRECTORY_DB, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(SCREENSHOT_DIRECTORY_STORE);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const transaction = request.result.transaction(SCREENSHOT_DIRECTORY_STORE, mode === "delete" ? "readwrite" : mode);
+      const store = transaction.objectStore(SCREENSHOT_DIRECTORY_STORE);
+      const operation = mode === "readwrite" ? store.put(value, SCREENSHOT_DIRECTORY_KEY) : mode === "delete" ? store.delete(SCREENSHOT_DIRECTORY_KEY) : store.get(SCREENSHOT_DIRECTORY_KEY);
+      operation.onsuccess = () => resolve(operation.result ?? null);
+      operation.onerror = () => reject(operation.error);
+    };
+  });
+}
+
+const savedScreenshotDirectory = () => screenshotDirectoryStore("readonly");
+const saveScreenshotDirectory = (handle) => screenshotDirectoryStore("readwrite", handle);
+const removeSavedScreenshotDirectory = () => screenshotDirectoryStore("delete");
+function apiFetch(input, init = {}) {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY);
+  const headers = new Headers(init.headers || {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(input, { ...init, headers });
+}
+
+// <img> cannot attach our bearer header. In cloud mode, fetch private media
+// explicitly and render a short-lived object URL instead of putting a session
+// credential in an image URL, query parameter, log, or referrer.
+function AuthenticatedImage({ src, onError, ...props }) {
+  const [resolvedSrc, setResolvedSrc] = useState(CLOUD_AUTH_ENABLED ? null : src);
+
+  useEffect(() => {
+    let objectUrl = null;
+    let cancelled = false;
+    if (!CLOUD_AUTH_ENABLED || !src) {
+      setResolvedSrc(src || null);
+      return undefined;
+    }
+    setResolvedSrc(null);
+    apiFetch(src)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Image request failed (${response.status})`);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setResolvedSrc(objectUrl);
+      })
+      .catch((error) => {
+        if (!cancelled) onError?.(error);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
+  if (!resolvedSrc) return null;
+  return <img {...props} src={resolvedSrc} onError={onError} />;
+}
+
+function AuthScreen({ onAuthenticated }) {
+  const [mode, setMode] = useState("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(event) {
+    event.preventDefault(); setBusy(true); setError("");
+    try {
+      const response = await fetch(`${API}/auth/${mode}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const data = await response.json();
+      if (!response.ok || !data?.access_token) throw new Error(data?.detail || "Unable to sign in.");
+      onAuthenticated(data);
+    } catch (authError) { setError(authError.message || "Unable to sign in."); }
+    finally { setBusy(false); }
+  }
+  return <main className="auth-screen"><section className="auth-card"><div className="brand-logo"><Brain size={24} /></div><p className="section-kicker">YOUR VISUAL MEMORY</p><h1>MemoryOS</h1><p>Import photos and screenshots. MemoryOS reads them, understands them, and makes them searchable.</p><form onSubmit={submit}><label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label>Password<input type="password" autoComplete={mode === "sign-in" ? "current-password" : "new-password"} minLength="10" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>{error && <p role="alert" className="auth-error">{error}</p>}<button className="primary-button" disabled={busy}>{busy ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}</button></form><button className="text-button" onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}>{mode === "sign-in" ? "Create an account" : "I already have an account"}</button></section></main>;
+}
 
 function App() {
   const [activePage, setActivePage] = useState("search");
+  const [session, setSession] = useState(() => CLOUD_AUTH_ENABLED && localStorage.getItem(SESSION_TOKEN_KEY) ? "restoring" : (CLOUD_AUTH_ENABLED ? null : { local: true }));
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -51,6 +145,7 @@ function App() {
 
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [apiHealth, setApiHealth] = useState({ state: "checking", detail: "Checking memory index" });
 
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
@@ -68,6 +163,9 @@ function App() {
     catch { return []; }
   });
   const [themePreference, setThemePreference] = useState(() => localStorage.getItem("memoryos-theme") || "dark");
+  const [screenshotAccess, setScreenshotAccess] = useState(() => localStorage.getItem(SCREENSHOT_ACCESS_KEY) || "NOT_REQUESTED");
+
+  const apiUnavailable = !API;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: light)");
@@ -85,6 +183,14 @@ function App() {
     setThemePreference(value);
   }
 
+  async function signOut() {
+    try { await apiFetch(`${API}/auth/sign-out`, { method: "POST" }); } catch { /* Local credential removal is still safe. */ }
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+    setSession(null);
+    setMemories([]);
+    setResults([]);
+  }
+
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
       const next = !current;
@@ -96,16 +202,74 @@ function App() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    loadDashboard();
+    // Chromium can persist a user-approved directory handle in IndexedDB. We
+    // only reuse it when the browser reports read permission as granted; a
+    // page reload never triggers a hidden permission prompt.
+    if (!['GRANTED', 'READY'].includes(screenshotAccess) || typeof window.showDirectoryPicker !== "function") return;
+    let cancelled = false;
+    savedScreenshotDirectory().then(async (directory) => {
+      if (!directory || cancelled) return;
+      const permission = await directory.queryPermission?.({ mode: "read" });
+      if (permission !== "granted" || cancelled) return;
+      await importScreenshotDirectory(directory);
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    checkApiHealth();
+  }, []);
+
+  useEffect(() => {
+    if (!session || session !== "restoring" || !API) return;
+    apiFetch(`${API}/auth/session`).then((response) => response.ok ? response.json() : null)
+      .then((data) => setSession(data?.user || null))
+      .catch(() => setSession(null));
+  }, [session]);
+
+  useEffect(() => {
+    if (CLOUD_AUTH_ENABLED && session && session !== "restoring") checkApiHealth();
+  }, [session]);
+
+  async function checkApiHealth() {
+    if (apiUnavailable) {
+      setApiHealth({ state: "unavailable", detail: "Memory index unavailable" });
+      setDashboardLoading(false);
+      setError("MemoryOS is not connected to its production API. Configure VITE_API_BASE_URL in Vercel.");
+      return;
+    }
+
+    try {
+      const response = await apiFetch(`${API}/health/ready`);
+      const health = response.ok ? await response.json() : null;
+      if (!response.ok || !health) {
+        throw new Error(`Health check failed (${response.status})`);
+      }
+      setApiHealth({
+        state: health.status === "degraded" ? "degraded" : "connected",
+        detail: health.status === "degraded" ? "Some processing services are degraded" : "Memory index connected",
+      });
+      loadDashboard();
+    } catch (healthError) {
+      console.error("API readiness check failed:", healthError);
+      setApiHealth({ state: "unavailable", detail: "Memory index unavailable" });
+      setDashboardLoading(false);
+      setError("MemoryOS API is unavailable. Check the configured HTTPS backend and its CORS settings.");
+    }
+  }
+
   async function loadDashboard({ category = memoryCategory, sort = memorySort } = {}) {
+    if (apiUnavailable) {
+      setDashboardLoading(false);
+      setError("MemoryOS is not connected to its production API. Configure VITE_API_BASE_URL in Vercel.");
+      return;
+    }
     setDashboardLoading(true);
 
     try {
       const [memoryResponse, statsResponse] = await Promise.all([
-        fetch(`${API}/memories?limit=100&sort=${encodeURIComponent(sort)}${category ? `&category=${encodeURIComponent(category)}` : ""}`),
-        fetch(`${API}/stats`),
+        apiFetch(`${API}/memories?limit=100&sort=${encodeURIComponent(sort)}${category ? `&category=${encodeURIComponent(category)}` : ""}`),
+        apiFetch(`${API}/stats`),
       ]);
 
       if (memoryResponse.ok) {
@@ -143,7 +307,7 @@ function App() {
     if (dashboardLoading || !hasMoreMemories) return;
 
     try {
-      const response = await fetch(`${API}/memories?page=${memoryPage + 1}&limit=100&sort=${encodeURIComponent(memorySort)}${memoryCategory ? `&category=${encodeURIComponent(memoryCategory)}` : ""}`);
+      const response = await apiFetch(`${API}/memories?page=${memoryPage + 1}&limit=100&sort=${encodeURIComponent(memorySort)}${memoryCategory ? `&category=${encodeURIComponent(memoryCategory)}` : ""}`);
       if (!response.ok) throw new Error(`Unable to load memories (${response.status})`);
       const data = await response.json();
       const next = Array.isArray(data?.memories) ? data.memories : [];
@@ -178,6 +342,10 @@ function App() {
         : query.trim();
 
     if (!searchText) return;
+    if (apiUnavailable) {
+      setError("MemoryOS is not connected to its production API. Configure VITE_API_BASE_URL in Vercel.");
+      return;
+    }
 
     setQuery(searchText);
     setLoading(true);
@@ -193,7 +361,7 @@ function App() {
         normalized === "all" ||
         normalized === "all screenshots"
       ) {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API}/memories?limit=100`
         );
 
@@ -218,7 +386,7 @@ function App() {
         return;
       }
 
-      const response = await fetch(`${API}/search`, {
+      const response = await apiFetch(`${API}/search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -273,7 +441,7 @@ function App() {
       return;
     }
     try {
-      const response = await fetch(`${API}/search/suggestions?q=${encodeURIComponent(trimmed)}&limit=6`);
+      const response = await apiFetch(`${API}/search/suggestions?q=${encodeURIComponent(trimmed)}&limit=6`);
       const data = response.ok ? await response.json() : {};
       setPredictiveSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : []);
     } catch {
@@ -284,7 +452,7 @@ function App() {
   async function sendFeedback(memoryId, relevant) {
     if (!query || !memoryId) return;
     try {
-      await fetch(`${API}/search/feedback`, {
+      await apiFetch(`${API}/search/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, memory_id: memoryId, relevant }),
@@ -374,6 +542,118 @@ function App() {
     setMobileMenu(false);
   }
 
+  function rememberScreenshotAccess(state) {
+    // This records only the app's consent UI. It never represents persistent
+    // browser filesystem permission; every access still opens a native picker.
+    localStorage.setItem(SCREENSHOT_ACCESS_KEY, state);
+    setScreenshotAccess(state);
+  }
+
+  function validImageFiles(files) {
+    return Array.from(files || []).filter((file) => [
+      "image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp",
+    ].includes(file.type) && file.size <= 10 * 1024 * 1024);
+  }
+
+  async function beginScreenshotAccess(files) {
+    const selected = validImageFiles(files);
+    if (!selected.length) return;
+    rememberScreenshotAccess("PROCESSING");
+    setUploadFiles(selected.slice(0, 50));
+    openUpload();
+    setUploadStatus(`${selected.length.toLocaleString()} screenshots found. Processing...`);
+    await uploadScreenshots(selected, { automatic: true, total: selected.length });
+  }
+
+  function supportedImageHandle(handle) {
+    return /\.(png|jpe?g|webp|gif|bmp)$/i.test(handle.name || "");
+  }
+
+  async function discoverScreenshotHandles(directory) {
+    const handles = [];
+    async function walk(handle) {
+      for await (const entry of handle.values()) {
+        if (entry.kind === "directory") await walk(entry);
+        else if (entry.kind === "file" && supportedImageHandle(entry)) handles.push(entry);
+      }
+    }
+    await walk(directory);
+    return handles;
+  }
+
+  async function importScreenshotDirectory(directory) {
+    const handles = await discoverScreenshotHandles(directory);
+    if (!handles.length) {
+      setUploadStatus("No supported screenshots were found in that folder.");
+      openUpload();
+      rememberScreenshotAccess("GRANTED");
+      return;
+    }
+    rememberScreenshotAccess("PROCESSING");
+    setUploadFiles([]);
+    openUpload();
+    setUploadStatus(`${handles.length.toLocaleString()} screenshots found. Processing...`);
+    await uploadScreenshotHandles(handles);
+  }
+
+  async function uploadScreenshotHandles(handles) {
+    let processed = 0;
+    let successful = 0;
+    let duplicates = 0;
+    let failed = 0;
+    setUploading(true);
+    try {
+      for (let index = 0; index < handles.length; index += DIRECTORY_BATCH_SIZE) {
+        // Only this small batch is materialized as File objects, keeping large
+        // screenshot libraries responsive and within browser memory limits.
+        const batch = validImageFiles(await Promise.all(handles.slice(index, index + DIRECTORY_BATCH_SIZE).map((handle) => handle.getFile())));
+        const outcome = await uploadScreenshots(batch, { automatic: true, total: handles.length, offset: processed, manageBusy: false });
+        processed += batch.length;
+        successful += outcome.successful;
+        duplicates += outcome.duplicates;
+        failed += outcome.failed;
+      }
+      setUploadStatus(`✓ Memory library updated\n${(successful - duplicates).toLocaleString()} new memories · ${duplicates.toLocaleString()} already remembered${failed ? ` · ${failed.toLocaleString()} failed` : ""}`);
+      rememberScreenshotAccess("READY");
+      await loadDashboard();
+    } catch (error) {
+      console.error("Screenshot directory import failed:", error);
+      setUploadStatus("Screenshot import stopped. You can upload screenshots manually whenever you want.");
+      rememberScreenshotAccess("GRANTED");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function chooseScreenshotDirectory() {
+    if (typeof window.showDirectoryPicker !== "function") return false;
+    try {
+      const directory = await window.showDirectoryPicker({ mode: "read" });
+      await saveScreenshotDirectory(directory);
+      await importScreenshotDirectory(directory);
+      return true;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        setUploadStatus("Screenshot access was not granted. You can upload screenshots manually whenever you want.");
+        rememberScreenshotAccess("DENIED");
+      } else setUploadStatus("Screenshot folder could not be read. You can choose screenshots manually.");
+      return true;
+    }
+  }
+
+  function resetScreenshotAccess() {
+    localStorage.removeItem(SCREENSHOT_ACCESS_KEY);
+    removeSavedScreenshotDirectory().catch(() => {});
+    setScreenshotAccess("NOT_REQUESTED");
+  }
+
+  function photoPickerCancelled() {
+    // Browsers do not expose a universal permission-denial signal. The
+    // supported cancel event is used where available; manual selection still
+    // remains possible everywhere.
+    setUploadStatus("Photo access wasn't granted. You can still choose images manually.");
+  }
+
   function closeUpload() {
     if (uploading) return;
 
@@ -383,20 +663,7 @@ function App() {
   }
 
   function addFiles(files) {
-    const valid = Array.from(files || []).filter(
-      (file) => {
-        const validType = [
-          "image/png",
-          "image/jpeg",
-          "image/webp",
-        ].includes(file.type);
-
-        const validSize =
-          file.size <= 10 * 1024 * 1024;
-
-        return validType && validSize;
-      }
-    );
+    const valid = validImageFiles(files);
 
     setUploadFiles((current) => {
       const combined = [
@@ -426,34 +693,36 @@ function App() {
     );
   }
 
-  async function uploadScreenshots() {
-    if (!uploadFiles.length || uploading) {
-      return;
+  async function uploadScreenshots(filesToUpload = uploadFiles, options = {}) {
+    const { automatic = false, total = filesToUpload.length, offset = 0, manageBusy = true } = options;
+    if (!filesToUpload.length || (uploading && manageBusy)) {
+      return { successful: 0, duplicates: 0, failed: 0 };
+    }
+    if (apiUnavailable) {
+      setUploadStatus("Production API is not configured. Uploads cannot be stored safely.");
+      return { successful: 0, duplicates: 0, failed: filesToUpload.length };
     }
 
-    setUploading(true);
+    if (manageBusy) setUploading(true);
 
-    setUploadStatus(
-      `Uploading ${uploadFiles.length} screenshot${
-        uploadFiles.length === 1 ? "" : "s"
-      }...`
-    );
+    if (!automatic) {
+      setUploadStatus(`Uploading ${filesToUpload.length} screenshot${filesToUpload.length === 1 ? "" : "s"}...`);
+    }
 
     try {
       let successful = 0;
       let failed = 0;
+      let duplicates = 0;
 
       for (
         let i = 0;
-        i < uploadFiles.length;
+        i < filesToUpload.length;
         i++
       ) {
-        const file = uploadFiles[i];
+        const file = filesToUpload[i];
 
         setUploadStatus(
-          `Processing ${i + 1} of ${
-            uploadFiles.length
-          }: ${file.name}`
+          `Processing ${(offset + i + 1).toLocaleString()} / ${total.toLocaleString()}: ${file.name}`
         );
 
         const formData = new FormData();
@@ -461,7 +730,7 @@ function App() {
         formData.append("file", file);
 
         try {
-          const response = await fetch(
+          const response = await apiFetch(
             `${API}/upload`,
             {
               method: "POST",
@@ -471,6 +740,8 @@ function App() {
 
           if (response.ok) {
             successful++;
+            const payload = await response.json().catch(() => null);
+            if (payload?.duplicate) duplicates++;
           } else {
             failed++;
 
@@ -491,36 +762,39 @@ function App() {
         }
       }
 
-      if (failed === 0) {
+      if (!automatic && failed === 0) {
         setUploadStatus(
           `✓ ${successful} screenshot${
             successful === 1 ? "" : "s"
           } uploaded successfully`
         );
-      } else {
+      } else if (!automatic) {
         setUploadStatus(
           `✓ ${successful} uploaded · ${failed} failed`
         );
       }
 
-      await loadDashboard();
+      if (!automatic) await loadDashboard();
 
-      setTimeout(() => {
-        setUploadFiles([]);
-        setUploadOpen(false);
-        setUploadStatus("");
-      }, 1500);
+      if (!automatic) {
+        setTimeout(() => {
+          setUploadFiles([]);
+          setUploadOpen(false);
+          setUploadStatus("");
+        }, 1500);
+      }
+      if (automatic && manageBusy) rememberScreenshotAccess("READY");
+      return { successful, duplicates, failed };
     } catch (err) {
       console.error(
         "Upload error:",
         err
       );
 
-      setUploadStatus(
-        "Upload failed. Check that the MemoryOS backend is running."
-      );
+      setUploadStatus("Upload failed. Check that the MemoryOS backend is running.");
+      return { successful: 0, duplicates: 0, failed: filesToUpload.length };
     } finally {
-      setUploading(false);
+      if (manageBusy) setUploading(false);
     }
   }
 
@@ -528,6 +802,11 @@ function App() {
     Number.isFinite(memoryTotal) && memoryTotal > 0
       ? memoryTotal
       : Number(stats?.memories?.total_memories ?? stats?.total_memories ?? stats?.total ?? 0) || memories.length;
+
+  const engineStatusText = apiHealth.detail;
+  const engineStatusTitle = apiHealth.state === "connected"
+    ? "Status verified by the backend readiness endpoint."
+    : "Status is based on the backend readiness endpoint; no connection is assumed from page load.";
 
   const imageCount =
     Number(stats?.memories?.indexed_memories ?? stats?.total_images ?? stats?.images ?? 0) || memories.length;
@@ -567,6 +846,10 @@ function App() {
       handleSearch(null, "everything");
       return;
     }
+  }
+
+  if (CLOUD_AUTH_ENABLED && !session) {
+    return <AuthScreen onAuthenticated={(nextSession) => { localStorage.setItem(SESSION_TOKEN_KEY, nextSession.access_token); setSession(nextSession.user); }} />;
   }
 
   return (
@@ -719,6 +1002,15 @@ function App() {
 
         <div className="sidebar-bottom">
 
+          {CLOUD_AUTH_ENABLED && (
+            <button type="button" className="nav-item" onClick={signOut}>
+              <span className="nav-label">Sign out</span>
+            </button>
+          )}
+          <button type="button" className="nav-item" onClick={resetScreenshotAccess}>
+            <span className="nav-label">Manage screenshot access</span>
+          </button>
+
           <div className="engine-card">
             <div className="engine-indicator">
               <span />
@@ -729,13 +1021,11 @@ function App() {
                 Memory engine
               </strong>
 
-              <small>
-                Local memory index
-              </small>
+              <small>{engineStatusText}</small>
             </div>
 
-            <div className="engine-status-dot">
-              <Check size={10} />
+            <div className="engine-status-dot" aria-label={engineStatusText}>
+              {apiHealth.state === "connected" ? <Check size={10} /> : <X size={10} />}
             </div>
           </div>
 
@@ -807,11 +1097,11 @@ function App() {
 
             <ThemeSwitcher value={themePreference} onChange={changeTheme} />
 
-            <div className="system-status" title="Status reflects the local memory engine; visual analysis may be degraded when Gemini is unavailable.">
+            <div className="system-status" title={engineStatusTitle}>
               <span className="pulse" />
 
               <span>
-                Local memory index
+                {engineStatusText}
               </span>
             </div>
 
@@ -909,7 +1199,7 @@ function App() {
 
           <span className="footer-live">
             <span />
-            Local & private
+            {CLOUD_AUTH_ENABLED ? "Cloud & private" : "Local & private"}
           </span>
         </footer>
       </main>
@@ -925,6 +1215,7 @@ function App() {
             fileInputRef
           }
           addFiles={addFiles}
+          onPickerCancelled={photoPickerCancelled}
           removeFile={
             removeUploadFile
           }
@@ -932,6 +1223,14 @@ function App() {
             uploadScreenshots
           }
           close={closeUpload}
+        />
+      )}
+
+      {screenshotAccess === "NOT_REQUESTED" && (
+        <ScreenshotAccessDialog
+          allow={beginScreenshotAccess}
+          chooseDirectory={chooseScreenshotDirectory}
+          skip={() => rememberScreenshotAccess("DENIED")}
         />
       )}
     </div>
@@ -1703,12 +2002,37 @@ function AnalyticsPage({
    UPLOAD MODAL
 ============================================================ */
 
+function ScreenshotAccessDialog({ allow, chooseDirectory, skip }) {
+  const filesRef = useRef(null);
+  return (
+    <div className="access-backdrop" role="presentation">
+      <section className="access-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title">
+        <div className="modal-icon"><ImageIcon size={20} /></div>
+        <p className="section-kicker">YOUR VISUAL MEMORY</p>
+        <h2 id="access-title">Your Visual Memory</h2>
+        <p>Let MemoryOS remember your screenshots.</p>
+        <p className="access-privacy">Allow access to your screenshot library to automatically discover and process your screenshots.</p>
+        <input ref={filesRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" multiple hidden onChange={(event) => { allow(event.target.files); event.target.value = ""; }} />
+        <div className="access-actions">
+          <button type="button" className="primary-button" onClick={async () => {
+            const usedDirectoryPicker = await chooseDirectory();
+            if (!usedDirectoryPicker) filesRef.current?.click();
+          }}>Allow Screenshot Access</button>
+          <button type="button" className="text-button" onClick={skip}>Skip</button>
+        </div>
+        <p className="access-note">MemoryOS only processes files you select. On devices without folder access, your browser opens its native multi-select picker.</p>
+      </section>
+    </div>
+  );
+}
+
 function UploadModal({
   files,
   uploading,
   status,
   fileInputRef,
   addFiles,
+  onPickerCancelled,
   removeFile,
   upload,
   close,
@@ -1743,7 +2067,7 @@ function UploadModal({
               </span>
 
               <h2>
-                Upload screenshots
+                Import photos
               </h2>
             </div>
           </div>
@@ -1787,9 +2111,10 @@ function UploadModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"
             multiple
             hidden
+            onCancel={onPickerCancelled}
             onChange={(event) => {
               addFiles(
                 event.target.files
@@ -1800,18 +2125,66 @@ function UploadModal({
             }}
           />
 
+          <input
+            id="memoryos-folder-input"
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            webkitdirectory=""
+            directory=""
+            onChange={(event) => {
+              addFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+
+          <input
+            id="memoryos-camera-input"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(event) => {
+              addFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+
           <div className="drop-icon">
             <Upload size={23} />
           </div>
 
           <h3>
-            Drop screenshots here
+            Choose photos or screenshots
           </h3>
 
           <p>
-            or click to browse your
-            computer
+            Tap to select photos. Your browser will show its supported
+            photo picker; MemoryOS never accesses your gallery silently.
           </p>
+
+          <button
+            type="button"
+            className="text-button camera-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              document.getElementById("memoryos-camera-input")?.click();
+            }}
+          >
+            Take a photo
+          </button>
+
+          <button
+            type="button"
+            className="text-button camera-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              document.getElementById("memoryos-folder-input")?.click();
+            }}
+          >
+            Choose folder
+          </button>
 
           <div className="drop-meta">
             PNG · JPG · WEBP · up to
@@ -2036,7 +2409,7 @@ function MemoryCard({
               </div>
             )}
 
-            <img
+            <AuthenticatedImage
               src={thumbnailUrl}
               alt={filename}
               loading="lazy"
@@ -2227,7 +2600,7 @@ function ImageViewer({
 
   useEffect(() => {
     if (!memory?.memory_id) return;
-    fetch(`${API}/search/related/${encodeURIComponent(memory.memory_id)}?limit=4`)
+    apiFetch(`${API}/search/related/${encodeURIComponent(memory.memory_id)}?limit=4`)
       .then((response) => response.ok ? response.json() : { results: [] })
       .then((data) => setRelated(Array.isArray(data?.results) ? data.results : []))
       .catch(() => setRelated([]));
@@ -2266,7 +2639,7 @@ function ImageViewer({
             The original screenshot is unavailable.
           </div>
         ) : (
-          <img
+          <AuthenticatedImage
             src={imageUrl}
             alt={filename}
             onError={() => setFailed(true)}

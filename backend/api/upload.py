@@ -122,12 +122,16 @@ SUPPORTED_EXTENSIONS = {
     ".jpeg": "image/jpeg",
     ".png": "image/png",
     ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
 }
 
 SUPPORTED_MIME_TYPES = {
     "image/jpeg",
     "image/png",
     "image/webp",
+    "image/gif",
+    "image/bmp",
 }
 
 
