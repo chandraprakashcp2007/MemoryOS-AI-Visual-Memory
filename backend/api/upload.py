@@ -1920,12 +1920,6 @@ async def _handle_upload(
         metadata=metadata,
     )
 
-    persist_search_memory(
-        memory_id=memory_id,
-        metadata=metadata,
-        processing=processing,
-    )
-
     processed = bool(
         processing.get(
             "processed",
@@ -1943,6 +1937,16 @@ async def _handle_upload(
     if not status:
 
         status = "processed" if processed else "processing_failed"
+
+    # A response with HTTP 200 only confirms that the file was accepted.  It
+    # becomes discoverable through this compatibility index only after the
+    # canonical processing pipeline has confirmed indexing.
+    if processed:
+        persist_search_memory(
+            memory_id=memory_id,
+            metadata=metadata,
+            processing=processing,
+        )
 
     metadata.update(
         {

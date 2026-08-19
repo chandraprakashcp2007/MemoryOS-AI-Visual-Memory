@@ -612,6 +612,9 @@ function App() {
         successful += outcome.successful;
         duplicates += outcome.duplicates;
         failed += outcome.failed;
+        // Completed batches are immediately reflected in the dashboard, so
+        // newly indexed memories can be searched before the library finishes.
+        await loadDashboard();
       }
       setUploadStatus(`✓ Memory library updated\n${(successful - duplicates).toLocaleString()} new memories · ${duplicates.toLocaleString()} already remembered${failed ? ` · ${failed.toLocaleString()} failed` : ""}`);
       rememberScreenshotAccess("READY");
@@ -744,9 +747,17 @@ function App() {
           );
 
           if (response.ok) {
-            successful++;
             const payload = await response.json().catch(() => null);
-            if (payload?.duplicate) duplicates++;
+            // The API may accept storage but report processing_failed. Do not
+            // present that as indexed; duplicate responses are already real
+            // indexed memories and therefore count as completed.
+            if (payload?.duplicate || payload?.processing?.processed === true) {
+              successful++;
+              if (payload?.duplicate) duplicates++;
+            } else {
+              failed++;
+              console.error("Indexing did not complete:", file.name, payload?.status || "unknown status");
+            }
           } else {
             failed++;
 
