@@ -664,6 +664,7 @@ function App() {
 
   function addFiles(files) {
     const valid = validImageFiles(files);
+    if (!valid.length) return;
 
     setUploadFiles((current) => {
       const combined = [
@@ -685,6 +686,10 @@ function App() {
 
       return unique.slice(0, 50);
     });
+
+    // File selection immediately enters the existing upload/indexing path;
+    // no second confirmation is needed for manual multi-upload.
+    void uploadScreenshots(valid, { automatic: false, total: valid.length });
   }
 
   function removeUploadFile(index) {
