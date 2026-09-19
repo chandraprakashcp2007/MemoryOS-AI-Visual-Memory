@@ -524,6 +524,20 @@ def _register_routers(
         logger.exception("Failed to register Assistant router")
 
     # ------------------------------------------------------------------------
+    # SMART COLLECTIONS
+    # ------------------------------------------------------------------------
+
+    try:
+        from backend.api.collections import router as collections_router
+
+        application.include_router(collections_router)
+
+        logger.info("Registered router: Collections")
+
+    except Exception:
+        logger.exception("Failed to register Collections router")
+
+    # ------------------------------------------------------------------------
     # OCR
     # ------------------------------------------------------------------------
 
