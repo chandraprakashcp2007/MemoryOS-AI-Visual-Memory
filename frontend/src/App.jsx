@@ -205,6 +205,7 @@ function App() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [apiHealth, setApiHealth] = useState({ state: "checking", detail: "Checking memory index" });
   const [galleryProgress, setGalleryProgress] = useState(null);
+  const [instantGallery, setInstantGallery] = useState(null); // MEMORYOS_INSTANT_GALLERY_V1
 
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
@@ -652,159 +653,201 @@ function App() {
   async function beginScreenshotAccess(files, mode = "photos") {
     const selected = validImageFiles(files);
     if (!selected.length) return;
+
     localStorage.setItem(GALLERY_MODE_KEY, mode);
-    rememberScreenshotAccess("PROCESSING");
-    setUploadFiles(selected.slice(0, 50));
-    openUpload();
-    setUploadStatus(`${selected.length.toLocaleString()} photos found. Building visual memory...`);
-    await uploadScreenshots(selected, { automatic: true, total: selected.length });
+    rememberScreenshotAccess("READY");
+    setUploadOpen(false);
+    setUploadFiles([]);
+    setInstantGallery({
+      state: "connected",
+      title: "Photos connected",
+      detail: `${selected.length.toLocaleString()} selected · indexing in background`,
+    });
+
+    // Never make the user wait on the ingestion screen. The current event
+    // finishes first so React can paint the connected state immediately.
+    window.setTimeout(async () => {
+      if (apiUnavailable) {
+        setInstantGallery({
+          state: "waiting",
+          title: "Photos connected",
+          detail: "Memory engine offline · indexing will start after reconnect",
+        });
+        return;
+      }
+
+      try {
+        await uploadScreenshots(selected, {
+          automatic: true,
+          total: selected.length,
+          manageBusy: false,
+        });
+        setInstantGallery({
+          state: "done",
+          title: "Photos ready",
+          detail: `${selected.length.toLocaleString()} processed in background`,
+        });
+        window.setTimeout(() => setInstantGallery(null), 4200);
+      } catch {
+        setInstantGallery({
+          state: "waiting",
+          title: "Photos connected",
+          detail: "Indexing paused · memory engine needs reconnect",
+        });
+      }
+    }, 0);
   }
 
   function supportedImageHandle(handle) {
     return /\.(png|jpe?g|webp|gif|bmp|heic|heif|avif)$/i.test(handle.name || "");
   }
 
-  async function discoverScreenshotHandles(directory) {
-    const handles = [];
-    async function walk(handle) {
-      for await (const entry of handle.values()) {
-        if (entry.kind === "directory") await walk(entry);
-        else if (entry.kind === "file" && supportedImageHandle(entry)) handles.push(entry);
-      }
-    }
-    await walk(directory);
-    return handles;
+  async function importScreenshotDirectory(directory) {
+    // Instant-connect UX: close permission UI immediately. Directory traversal,
+    // file reads, uploads, CLIP and OCR all continue after the next paint.
+    rememberScreenshotAccess("READY");
+    setUploadOpen(false);
+    setUploadFiles([]);
+    setUploadStatus("");
+    setInstantGallery({
+      state: "connected",
+      title: "Gallery connected",
+      detail: "Ready · indexing in background",
+    });
+
+    window.setTimeout(() => {
+      void indexDirectoryInBackground(directory);
+    }, 0);
   }
 
-  async function importScreenshotDirectory(directory) {
-    const handles = await discoverScreenshotHandles(directory);
-    if (!handles.length) {
-      setUploadStatus("No supported photos were found in that gallery folder.");
-      openUpload();
-      rememberScreenshotAccess("GRANTED");
+  async function indexDirectoryInBackground(directory) {
+    if (apiUnavailable) {
+      setInstantGallery({
+        state: "waiting",
+        title: "Gallery connected",
+        detail: "Memory engine offline · folder permission is saved",
+      });
       return;
     }
-    rememberScreenshotAccess("PROCESSING");
-    setUploadFiles([]);
-    openUpload();
-    setUploadStatus(`${handles.length.toLocaleString()} photos discovered. Building visual memory...`);
-    await uploadScreenshotHandles(handles);
-  }
 
-  async function uploadScreenshotHandles(handles) {
+    let discovered = 0;
     let processed = 0;
     let visualReady = 0;
     let duplicates = 0;
     let failed = 0;
+    let batches = 0;
+    let batch = [];
 
-    setUploading(true);
+    async function flushBatch() {
+      if (!batch.length) return;
 
-    try {
-      for (
-        let index = 0;
-        index < handles.length;
-        index += DIRECTORY_BATCH_SIZE
-      ) {
-        const selectedHandles = handles.slice(
-          index,
-          index + DIRECTORY_BATCH_SIZE
-        );
+      const currentHandles = batch;
+      batch = [];
 
-        const files = validImageFiles(
-          await Promise.all(
-            selectedHandles.map((handle) => handle.getFile())
-          )
-        );
+      const files = validImageFiles(
+        await Promise.all(
+          currentHandles.map((handle) => handle.getFile())
+        )
+      );
 
-        if (!files.length) {
-          processed += selectedHandles.length;
+      if (!files.length) return;
+
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+
+      formData.append(
+        "metadata_json",
+        JSON.stringify(
+          files.map((file) => ({
+            name: file.name,
+            last_modified_ms: file.lastModified,
+          }))
+        )
+      );
+
+      // Discovery is streaming, so this is the best known total at this moment.
+      formData.append("total_hint", String(Math.max(discovered, processed + files.length)));
+
+      const response = await apiFetch(`${API}/gallery/ingest`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Fast gallery indexing failed (${response.status})`);
+      }
+
+      const payload = await response.json();
+      visualReady += Number(payload?.visual_ready || 0);
+      duplicates += Number(payload?.duplicates || 0);
+      failed += Number(payload?.failed || 0);
+      processed += files.length;
+      batches += 1;
+
+      setInstantGallery({
+        state: "indexing",
+        title: "Gallery connected",
+        detail: `${(visualReady + duplicates).toLocaleString()} searchable · indexing continues`,
+      });
+
+      // Refresh visible memories early, then only occasionally. This avoids
+      // making every ingestion batch wait for two dashboard network requests.
+      if (batches === 1 || batches % 5 === 0) {
+        void loadDashboard();
+      }
+    }
+
+    async function walk(handle) {
+      for await (const entry of handle.values()) {
+        if (entry.kind === "directory") {
+          await walk(entry);
           continue;
         }
 
-        setUploadStatus(
-          `Building visual memory ${Math.min(processed + files.length, handles.length).toLocaleString()} / ${handles.length.toLocaleString()}...`
-        );
+        if (entry.kind === "file" && supportedImageHandle(entry)) {
+          discovered += 1;
+          batch.push(entry);
 
-        const formData = new FormData();
-
-        files.forEach((file) => {
-          formData.append("files", file);
-        });
-
-        formData.append(
-          "metadata_json",
-          JSON.stringify(
-            files.map((file) => ({
-              name: file.name,
-              last_modified_ms: file.lastModified,
-            }))
-          )
-        );
-
-        formData.append(
-          "total_hint",
-          String(handles.length)
-        );
-
-        const response = await apiFetch(
-          `${API}/gallery/ingest`,
-          {
-            method: "POST",
-            body: formData,
+          if (batch.length >= DIRECTORY_BATCH_SIZE) {
+            await flushBatch();
           }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Fast gallery indexing failed (${response.status})`
-          );
         }
+      }
+    }
 
-        const payload = await response.json();
+    try {
+      await walk(directory);
+      await flushBatch();
 
-        visualReady += Number(payload?.visual_ready || 0);
-        duplicates += Number(payload?.duplicates || 0);
-        failed += Number(payload?.failed || 0);
-        processed += files.length;
-
-        setUploadStatus(
-          `Visual search ready: ${(visualReady + duplicates).toLocaleString()} / ${handles.length.toLocaleString()} | ${payload?.device || "AI"}`
-        );
-
-        await loadDashboard();
+      if (!discovered) {
+        setInstantGallery({
+          state: "waiting",
+          title: "Gallery connected",
+          detail: "No supported photos found in this folder",
+        });
+        return;
       }
 
-      // Expensive OCR / Gemini / MiniLM work now continues separately.
-      apiFetch(
-        `${API}/gallery/enrich`,
-        { method: "POST" }
-      ).catch(() => {});
-
-      setUploadStatus(
-        `Visual search ready for ${(visualReady + duplicates).toLocaleString()} memories
-OCR & AI text enrichment continues in the background${failed ? ` | ${failed} skipped` : ""}`
-      );
-
+      // OCR / semantic enrichment remains deliberately asynchronous.
+      void apiFetch(`${API}/gallery/enrich`, { method: "POST" }).catch(() => {});
       rememberScreenshotAccess("READY");
+      void loadDashboard();
 
-      await loadDashboard();
+      setInstantGallery({
+        state: "done",
+        title: "Gallery ready",
+        detail: `${(visualReady + duplicates).toLocaleString()} searchable${failed ? ` · ${failed} skipped` : ""}`,
+      });
 
+      window.setTimeout(() => setInstantGallery(null), 5000);
     } catch (error) {
-      console.error(
-        "Fast gallery import failed:",
-        error
-      );
-
-      setUploadStatus(
-        "Gallery indexing paused. Already indexed memories are safe - choose the folder again to continue."
-      );
-
-      rememberScreenshotAccess(
-        "GRANTED"
-      );
-
-    } finally {
-      setUploading(false);
+      console.error("Background gallery indexing failed:", error);
+      rememberScreenshotAccess("READY");
+      setInstantGallery({
+        state: "waiting",
+        title: "Gallery connected",
+        detail: "Indexing paused · reconnect the memory engine to continue",
+      });
     }
   }
 
@@ -823,8 +866,8 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
       const directory = await window.showDirectoryPicker({ mode: "read" });
       localStorage.setItem(GALLERY_MODE_KEY, mode);
       await saveScreenshotDirectory(directory);
-      rememberScreenshotAccess("GRANTED");
-      await importScreenshotDirectory(directory);
+      rememberScreenshotAccess("READY");
+      void importScreenshotDirectory(directory);
       return true;
     } catch (error) {
       if (error?.name === "AbortError") {
@@ -1019,14 +1062,15 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
       : Number(stats?.memories?.total_memories ?? stats?.total_memories ?? stats?.total ?? 0) || memories.length;
 
   const engineStatusText =
-    galleryProgress?.active &&
+    instantGallery?.detail ||
+    (galleryProgress?.active &&
     Number(galleryProgress?.discovered || 0) > 0
       ? `Indexing ${Number(
           galleryProgress?.visual_ready || 0
         ).toLocaleString()} / ${Number(
           galleryProgress?.discovered || 0
         ).toLocaleString()}`
-      : apiHealth.detail;
+      : apiHealth.detail);
   const engineStatusTitle = apiHealth.state === "connected"
     ? "Status verified by the backend readiness endpoint."
     : "Status is based on the backend readiness endpoint; no connection is assumed from page load.";
@@ -1455,6 +1499,18 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
           chooseDirectory={chooseScreenshotDirectory}
           skip={() => rememberScreenshotAccess("DENIED")}
         />
+      )}
+
+      {instantGallery && (
+        <div className={`instant-gallery-toast ${instantGallery.state || ""}`} role="status" aria-live="polite">
+          <div className="instant-gallery-dot">
+            {instantGallery.state === "done" ? <Check size={13} /> : <Loader2 size={13} className={instantGallery.state === "indexing" ? "spin" : ""} />}
+          </div>
+          <div>
+            <strong>{instantGallery.title}</strong>
+            <span>{instantGallery.detail}</span>
+          </div>
+        </div>
       )}
 
       <MemoryAssistant />

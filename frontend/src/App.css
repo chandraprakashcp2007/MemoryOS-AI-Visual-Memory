@@ -6745,3 +6745,80 @@ premium-enter {
     min-height: 88px;
   }
 }
+
+
+/* ============================================================
+   MEMORYOS INSTANT GALLERY V1
+============================================================ */
+
+.instant-gallery-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 98px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(340px, calc(100vw - 28px));
+  padding: 11px 13px;
+  border: 1px solid rgba(140, 111, 255, .24);
+  border-radius: 16px;
+  background: rgba(18, 16, 30, .92);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, .30);
+  backdrop-filter: blur(16px);
+  animation: instant-gallery-in .22s ease both;
+}
+
+.instant-gallery-toast > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.instant-gallery-toast strong {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.instant-gallery-toast span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.instant-gallery-dot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 10px;
+  color: #d8ceff;
+  background: rgba(126, 87, 255, .14);
+}
+
+.instant-gallery-toast.done {
+  border-color: rgba(67, 214, 147, .24);
+}
+
+.instant-gallery-toast.done .instant-gallery-dot {
+  color: #8ff0bd;
+  background: rgba(67, 214, 147, .11);
+}
+
+@keyframes instant-gallery-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+  .instant-gallery-toast {
+    right: 10px;
+    left: 10px;
+    bottom: 82px;
+    width: auto;
+  }
+}
