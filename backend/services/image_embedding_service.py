@@ -1,17 +1,13 @@
 ﻿"""
-MemoryOS local multimodal visual embedding service.
+MemoryOS fast local CLIP service.
 
-Uses pretrained OpenAI CLIP ViT-B/32.
-
-Purpose
--------
-Image -> 512-dimensional visual embedding
-Text  -> 512-dimensional visual-semantic embedding
-
-These vectors live in a SEPARATE index from MiniLM's 384-dimensional
-semantic text vectors.
-
-No training is required.
+Features:
+- lazy loading
+- automatic CUDA / CPU selection
+- batch image embeddings
+- batch text embeddings
+- normalized float32 vectors
+- Transformers v4/v5 compatibility
 """
 
 from __future__ import annotations
@@ -20,13 +16,14 @@ import io
 import os
 from pathlib import Path
 from threading import RLock
-from typing import Any
+from typing import Any, Iterable, Sequence
 
 import numpy as np
 from PIL import Image
 
 
 DEFAULT_MODEL = "openai/clip-vit-base-patch32"
+DEFAULT_BATCH_SIZE = 32
 
 
 class ImageEmbeddingService:
@@ -48,21 +45,25 @@ class ImageEmbeddingService:
         self._model = None
         self._processor = None
         self._torch = None
+        self._device = "cpu"
 
-        self._lock = RLock()
+        self._load_lock = RLock()
+        self._inference_lock = RLock()
 
-    # --------------------------------------------------------
-    # MODEL LOADING
-    # --------------------------------------------------------
+    @property
+    def device(self) -> str:
+        self._ensure_loaded()
+        return self._device
 
-    def _ensure_loaded(self):
+    def _ensure_loaded(self) -> None:
 
-        with self._lock:
+        with self._load_lock:
 
             if self._model is not None:
                 return
 
             import torch
+
             from transformers import (
                 CLIPModel,
                 CLIPProcessor,
@@ -73,8 +74,35 @@ class ImageEmbeddingService:
                     "MEMORYOS_VISUAL_LOCAL_ONLY",
                     "1",
                 ).strip().lower()
-                in {"1", "true", "yes"}
+                in {"1", "true", "yes", "on"}
             )
+
+            requested = (
+                os.getenv(
+                    "MEMORYOS_VISUAL_DEVICE",
+                    "auto",
+                ).strip().lower()
+            )
+
+            if requested == "auto":
+
+                self._device = (
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "cpu"
+                )
+
+            elif requested.startswith("cuda"):
+
+                self._device = (
+                    requested
+                    if torch.cuda.is_available()
+                    else "cpu"
+                )
+
+            else:
+
+                self._device = requested or "cpu"
 
             self._processor = CLIPProcessor.from_pretrained(
                 self.model_name,
@@ -88,223 +116,409 @@ class ImageEmbeddingService:
 
             self._model.eval()
 
+            self._model.to(
+                self._device
+            )
+
             self._torch = torch
 
             try:
+
                 self.embedding_dimension = int(
                     self._model.config.projection_dim
                 )
-                self.dimension = self.embedding_dimension
+
+                self.dimension = (
+                    self.embedding_dimension
+                )
 
             except Exception:
                 pass
 
-    # --------------------------------------------------------
-    # IMAGE NORMALIZATION
-    # --------------------------------------------------------
+    @staticmethod
+    def _unwrap(output):
+
+        if hasattr(
+            output,
+            "pooler_output",
+        ):
+            return output.pooler_output
+
+        return output
 
     @staticmethod
-    def _load_image(source: Any) -> Image.Image:
+    def _normalize(tensor):
 
-        if isinstance(source, Image.Image):
-            return source.convert("RGB")
+        return (
+            tensor /
+            tensor.norm(
+                dim=-1,
+                keepdim=True,
+            ).clamp(min=1e-12)
+        )
 
-        if isinstance(source, (str, Path)):
+    @staticmethod
+    def _load_image(
+        source: Any,
+    ) -> Image.Image:
 
-            path = Path(source)
+        if isinstance(
+            source,
+            Image.Image,
+        ):
 
-            if not path.exists():
+            return source.convert(
+                "RGB"
+            )
+
+        if isinstance(
+            source,
+            (str, Path),
+        ):
+
+            source = Path(source)
+
+            if not source.exists():
+
                 raise FileNotFoundError(
-                    f"Image not found: {path}"
+                    source
                 )
 
-            with Image.open(path) as image:
-                return image.convert("RGB")
+            with Image.open(
+                source
+            ) as image:
 
-        if isinstance(source, bytes):
+                return image.convert(
+                    "RGB"
+                )
 
-            with Image.open(io.BytesIO(source)) as image:
-                return image.convert("RGB")
+        if isinstance(
+            source,
+            bytes,
+        ):
 
-        if hasattr(source, "read"):
+            with Image.open(
+                io.BytesIO(source)
+            ) as image:
 
-            data = source.read()
-
-            if hasattr(source, "seek"):
-                try:
-                    source.seek(0)
-                except Exception:
-                    pass
-
-            with Image.open(io.BytesIO(data)) as image:
-                return image.convert("RGB")
+                return image.convert(
+                    "RGB"
+                )
 
         raise TypeError(
             f"Unsupported image source: {type(source)!r}"
         )
 
-    # --------------------------------------------------------
-    # OUTPUT COMPATIBILITY
-    # --------------------------------------------------------
+    def _resolve_batch_size(
+        self,
+        value: int | None,
+    ) -> int:
 
-    @staticmethod
-    def _unwrap_features(output):
+        if value is None:
 
-        # Transformers v5:
-        # BaseModelOutputWithPooling.pooler_output
+            try:
+                value = int(
+                    os.getenv(
+                        "MEMORYOS_VISUAL_BATCH_SIZE",
+                        str(DEFAULT_BATCH_SIZE),
+                    )
+                )
+            except ValueError:
+                value = DEFAULT_BATCH_SIZE
 
-        if hasattr(output, "pooler_output"):
-            return output.pooler_output
-
-        # Earlier transformers versions:
-        # direct tensor
-
-        return output
-
-    # --------------------------------------------------------
-    # NORMALIZATION
-    # --------------------------------------------------------
-
-    @staticmethod
-    def _normalize(vector):
-
-        norm = vector.norm(
-            dim=-1,
-            keepdim=True,
+        return max(
+            1,
+            min(
+                int(value),
+                128,
+            ),
         )
 
-        norm = norm.clamp(
-            min=1e-12
+    def embed_images(
+        self,
+        sources: Sequence[Any] | Iterable[Any],
+        *,
+        batch_size: int | None = None,
+    ) -> np.ndarray:
+
+        self._ensure_loaded()
+
+        source_list = list(
+            sources
         )
 
-        return vector / norm
+        if not source_list:
 
-    # --------------------------------------------------------
-    # IMAGE EMBEDDING
-    # --------------------------------------------------------
+            return np.empty(
+                (
+                    0,
+                    self.embedding_dimension,
+                ),
+                dtype=np.float32,
+            )
+
+        batch_size = (
+            self._resolve_batch_size(
+                batch_size
+            )
+        )
+
+        output_vectors = []
+
+        with self._inference_lock:
+
+            for start in range(
+                0,
+                len(source_list),
+                batch_size,
+            ):
+
+                batch_sources = (
+                    source_list[
+                        start:
+                        start + batch_size
+                    ]
+                )
+
+                images = [
+                    self._load_image(source)
+                    for source
+                    in batch_sources
+                ]
+
+                inputs = self._processor(
+                    images=images,
+                    return_tensors="pt",
+                )
+
+                pixels = (
+                    inputs[
+                        "pixel_values"
+                    ].to(
+                        self._device
+                    )
+                )
+
+                with self._torch.inference_mode():
+
+                    raw = (
+                        self._model
+                        .get_image_features(
+                            pixel_values=pixels
+                        )
+                    )
+
+                    vectors = (
+                        self._normalize(
+                            self._unwrap(
+                                raw
+                            )
+                        )
+                    )
+
+                output_vectors.append(
+                    vectors
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .astype(
+                        np.float32,
+                        copy=False,
+                    )
+                )
+
+        matrix = np.concatenate(
+            output_vectors,
+            axis=0,
+        )
+
+        expected = (
+            len(source_list),
+            self.embedding_dimension,
+        )
+
+        if matrix.shape != expected:
+
+            raise ValueError(
+                f"Unexpected CLIP matrix: "
+                f"{matrix.shape}, expected {expected}"
+            )
+
+        return matrix
 
     def embed_image(
         self,
         source: Any,
     ) -> np.ndarray:
 
+        return self.embed_images(
+            [source],
+            batch_size=1,
+        )[0]
+
+    def embed_texts(
+        self,
+        texts: Sequence[str] | Iterable[str],
+        *,
+        batch_size: int | None = None,
+    ) -> np.ndarray:
+
         self._ensure_loaded()
 
-        image = self._load_image(source)
+        texts = [
+            str(value).strip()
+            for value in texts
+        ]
 
-        inputs = self._processor(
-            images=image,
-            return_tensors="pt",
-        )
+        if not texts:
 
-        with self._torch.inference_mode():
-
-            output = self._model.get_image_features(
-                pixel_values=inputs["pixel_values"],
+            return np.empty(
+                (
+                    0,
+                    self.embedding_dimension,
+                ),
+                dtype=np.float32,
             )
 
-            vector = self._unwrap_features(output)
-
-            vector = self._normalize(vector)
-
-        array = (
-            vector[0]
-            .detach()
-            .cpu()
-            .numpy()
-            .astype(np.float32)
-        )
-
-        if array.shape != (
-            self.embedding_dimension,
+        if any(
+            not text
+            for text in texts
         ):
+
             raise ValueError(
-                "Unexpected visual embedding shape: "
-                f"{array.shape}"
+                "CLIP query cannot be empty."
             )
 
-        return array
+        batch_size = (
+            self._resolve_batch_size(
+                batch_size
+            )
+        )
 
-    # --------------------------------------------------------
-    # TEXT QUERY EMBEDDING
-    # --------------------------------------------------------
+        outputs = []
+
+        with self._inference_lock:
+
+            for start in range(
+                0,
+                len(texts),
+                batch_size,
+            ):
+
+                batch = (
+                    texts[
+                        start:
+                        start + batch_size
+                    ]
+                )
+
+                inputs = self._processor(
+                    text=batch,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                )
+
+                kwargs = {
+                    "input_ids":
+                        inputs[
+                            "input_ids"
+                        ].to(
+                            self._device
+                        )
+                }
+
+                if (
+                    "attention_mask"
+                    in inputs
+                ):
+
+                    kwargs[
+                        "attention_mask"
+                    ] = (
+                        inputs[
+                            "attention_mask"
+                        ].to(
+                            self._device
+                        )
+                    )
+
+                with self._torch.inference_mode():
+
+                    raw = (
+                        self._model
+                        .get_text_features(
+                            **kwargs
+                        )
+                    )
+
+                    vectors = (
+                        self._normalize(
+                            self._unwrap(
+                                raw
+                            )
+                        )
+                    )
+
+                outputs.append(
+                    vectors
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .astype(
+                        np.float32,
+                        copy=False,
+                    )
+                )
+
+        return np.concatenate(
+            outputs,
+            axis=0,
+        )
 
     def embed_text(
         self,
         text: str,
     ) -> np.ndarray:
 
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError(
-                "Visual search text cannot be empty."
-            )
+        return self.embed_texts(
+            [text],
+            batch_size=1,
+        )[0]
 
-        self._ensure_loaded()
-
-        inputs = self._processor(
-            text=[text],
-            return_tensors="pt",
-            padding=True,
-        )
-
-        with self._torch.inference_mode():
-
-            output = self._model.get_text_features(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs.get(
-                    "attention_mask"
-                ),
-            )
-
-            vector = self._unwrap_features(output)
-
-            vector = self._normalize(vector)
-
-        array = (
-            vector[0]
-            .detach()
-            .cpu()
-            .numpy()
-            .astype(np.float32)
-        )
-
-        if array.shape != (
-            self.embedding_dimension,
-        ):
-            raise ValueError(
-                "Unexpected visual query embedding shape: "
-                f"{array.shape}"
-            )
-
-        return array
-
-    # Compatibility alias
     def embed_query(
         self,
         text: str,
     ) -> np.ndarray:
 
-        return self.embed_text(text)
+        return self.embed_text(
+            text
+        )
 
     def warmup(self) -> int:
 
         self._ensure_loaded()
 
-        return self.embedding_dimension
+        return (
+            self.embedding_dimension
+        )
 
 
-_service: ImageEmbeddingService | None = None
+_service = None
 _service_lock = RLock()
 
 
-def get_image_embedding_service() -> ImageEmbeddingService:
+def get_image_embedding_service():
 
     global _service
 
     with _service_lock:
 
         if _service is None:
-            _service = ImageEmbeddingService()
+
+            _service = (
+                ImageEmbeddingService()
+            )
 
         return _service
 

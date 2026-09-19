@@ -496,6 +496,20 @@ def _register_routers(
         logger.exception("Failed to register Upload router")
 
     # ------------------------------------------------------------------------
+    # FAST GALLERY
+    # ------------------------------------------------------------------------
+
+    try:
+        from backend.api.gallery import router as gallery_router
+
+        application.include_router(gallery_router)
+
+        logger.info("Registered router: Gallery")
+
+    except Exception:
+        logger.exception("Failed to register Gallery router")
+
+    # ------------------------------------------------------------------------
     # OCR
     # ------------------------------------------------------------------------
 

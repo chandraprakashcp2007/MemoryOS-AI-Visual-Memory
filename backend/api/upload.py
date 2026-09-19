@@ -1551,6 +1551,22 @@ def persist_search_memory(
             "id": memory_id,
             "memory_id": memory_id,
             "filename": metadata["filename"],
+
+            "captured_at": (
+                metadata.get("captured_at")
+                or metadata.get("created_at")
+            ),
+
+            "created_at": metadata.get("created_at"),
+
+            "source_last_modified_ms": (
+                metadata.get("source_last_modified_ms")
+            ),
+
+            "relative_path": (
+                metadata.get("relative_path")
+            ),
+
             "path": metadata["original_path"],
             "image_hash": metadata.get("image_hash", ""),
             "sha256": processing.get("sha256") or metadata.get("image_hash", ""),

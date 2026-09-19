@@ -683,6 +683,60 @@ def build_result(
     )
 
 
+
+def _memory_in_date_window(
+    memory: Dict[str, Any],
+    date_from: str | None,
+    date_to: str | None,
+) -> bool:
+
+    if not date_from or not date_to:
+        return True
+
+    try:
+        from datetime import datetime
+
+        start = datetime.fromisoformat(date_from)
+        end = datetime.fromisoformat(date_to)
+
+    except Exception:
+        return True
+
+    candidates = (
+        memory.get("captured_at"),
+        memory.get("created_at"),
+        memory.get("indexed_at"),
+    )
+
+    for value in candidates:
+
+        if not value:
+            continue
+
+        try:
+
+            parsed = datetime.fromisoformat(
+                str(value).replace(
+                    "Z",
+                    "+00:00",
+                )
+            )
+
+            if parsed.tzinfo is not None:
+                parsed = parsed.replace(
+                    tzinfo=None
+                )
+
+            if start <= parsed < end:
+                return True
+
+        except Exception:
+            continue
+
+    return False
+
+
+
 # ============================================================================
 # SEARCH ENGINE
 # ============================================================================
@@ -698,19 +752,55 @@ def search_memories(
     if not memories:
         return []
 
-    semantic = semantic_scores(query, limit)
+    try:
+        from backend.services.query_understanding_service import understand_query
 
-    visual = visual_scores(query, limit)
+        understanding = understand_query(query)
+
+        retrieval_query = understanding.search_text or query
+
+    except Exception:
+        understanding = None
+        retrieval_query = query
+
+    semantic = semantic_scores(retrieval_query, limit)
+
+    visual = visual_scores(retrieval_query, limit)
+
     ranked = []
 
     for memory_id, memory in memories.items():
 
+        if (
+            understanding is not None
+            and not _memory_in_date_window(
+                memory,
+                understanding.date_from,
+                understanding.date_to,
+            )
+        ):
+            continue
+
         score, reasons = score_memory(
-            query,
+            retrieval_query,
             memory,
             semantic.get(memory_id, 0.0),
             visual.get(memory_id, 0.0),
         )
+
+        if (
+            understanding is not None
+            and understanding.date_from
+            and understanding.date_to
+        ):
+            score = min(
+                100.0,
+                score + 25.0,
+            )
+
+            reasons.append(
+                "Matched by capture date"
+            )
 
         if score <= 0:
             continue

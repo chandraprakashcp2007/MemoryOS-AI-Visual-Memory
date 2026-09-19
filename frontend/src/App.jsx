@@ -43,7 +43,7 @@ const SCREENSHOT_ACCESS_KEY = "memoryos-screenshot-access-ui";
 const SCREENSHOT_DIRECTORY_DB = "memoryos-screenshot-directory";
 const SCREENSHOT_DIRECTORY_STORE = "handles";
 const SCREENSHOT_DIRECTORY_KEY = "selected-directory";
-const DIRECTORY_BATCH_SIZE = 20;
+const DIRECTORY_BATCH_SIZE = 24;
 const CLOUD_AUTH_ENABLED = String(import.meta.env.VITE_CLOUD_AUTH || "").toLowerCase() === "true";
 
 function screenshotDirectoryStore(mode, value) {
@@ -598,31 +598,116 @@ function App() {
 
   async function uploadScreenshotHandles(handles) {
     let processed = 0;
-    let successful = 0;
+    let visualReady = 0;
     let duplicates = 0;
     let failed = 0;
+
     setUploading(true);
+
     try {
-      for (let index = 0; index < handles.length; index += DIRECTORY_BATCH_SIZE) {
-        // Only this small batch is materialized as File objects, keeping large
-        // screenshot libraries responsive and within browser memory limits.
-        const batch = validImageFiles(await Promise.all(handles.slice(index, index + DIRECTORY_BATCH_SIZE).map((handle) => handle.getFile())));
-        const outcome = await uploadScreenshots(batch, { automatic: true, total: handles.length, offset: processed, manageBusy: false });
-        processed += batch.length;
-        successful += outcome.successful;
-        duplicates += outcome.duplicates;
-        failed += outcome.failed;
-        // Completed batches are immediately reflected in the dashboard, so
-        // newly indexed memories can be searched before the library finishes.
+      for (
+        let index = 0;
+        index < handles.length;
+        index += DIRECTORY_BATCH_SIZE
+      ) {
+        const selectedHandles = handles.slice(
+          index,
+          index + DIRECTORY_BATCH_SIZE
+        );
+
+        const files = validImageFiles(
+          await Promise.all(
+            selectedHandles.map((handle) => handle.getFile())
+          )
+        );
+
+        if (!files.length) {
+          processed += selectedHandles.length;
+          continue;
+        }
+
+        setUploadStatus(
+          `Building visual memory ${Math.min(processed + files.length, handles.length).toLocaleString()} / ${handles.length.toLocaleString()}...`
+        );
+
+        const formData = new FormData();
+
+        files.forEach((file) => {
+          formData.append("files", file);
+        });
+
+        formData.append(
+          "metadata_json",
+          JSON.stringify(
+            files.map((file) => ({
+              name: file.name,
+              last_modified_ms: file.lastModified,
+            }))
+          )
+        );
+
+        formData.append(
+          "total_hint",
+          String(handles.length)
+        );
+
+        const response = await apiFetch(
+          `${API}/gallery/ingest`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Fast gallery indexing failed (${response.status})`
+          );
+        }
+
+        const payload = await response.json();
+
+        visualReady += Number(payload?.visual_ready || 0);
+        duplicates += Number(payload?.duplicates || 0);
+        failed += Number(payload?.failed || 0);
+        processed += files.length;
+
+        setUploadStatus(
+          `? Visual search ready: ${(visualReady + duplicates).toLocaleString()} / ${handles.length.toLocaleString()} ? ${payload?.device || "AI"}`
+        );
+
         await loadDashboard();
       }
-      setUploadStatus(`✓ Memory library updated\n${(successful - duplicates).toLocaleString()} new memories · ${duplicates.toLocaleString()} already remembered${failed ? ` · ${failed.toLocaleString()} failed` : ""}`);
+
+      // Expensive OCR / Gemini / MiniLM work now continues separately.
+      apiFetch(
+        `${API}/gallery/enrich`,
+        { method: "POST" }
+      ).catch(() => {});
+
+      setUploadStatus(
+        `? Visual search ready for ${(visualReady + duplicates).toLocaleString()} memories
+OCR & AI text enrichment continues in the background${failed ? ` ? ${failed} skipped` : ""}`
+      );
+
       rememberScreenshotAccess("READY");
+
       await loadDashboard();
+
     } catch (error) {
-      console.error("Screenshot directory import failed:", error);
-      setUploadStatus("Screenshot import stopped. You can upload screenshots manually whenever you want.");
-      rememberScreenshotAccess("GRANTED");
+      console.error(
+        "Fast gallery import failed:",
+        error
+      );
+
+      setUploadStatus(
+        "Gallery indexing paused. Already indexed memories are safe ? choose the folder again to continue."
+      );
+
+      rememberScreenshotAccess(
+        "GRANTED"
+      );
+
     } finally {
       setUploading(false);
     }
@@ -1127,7 +1212,7 @@ function App() {
               onClick={openUpload}
             >
               <Upload size={16} />
-              Upload
+              Connect gallery
             </button>
           </div>
         </header>
@@ -1389,7 +1474,7 @@ function SearchPage({
                 event.target.value
               )
             }
-            placeholder='Try "find my Python error"...'
+            placeholder='Try "?????? ????? ?????? photos" or "black bike"...'
             autoComplete="off"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}

@@ -14,3 +14,5 @@ data/memory_index/
 data/backfill/
 data/search_feedback.json
 *.log
+
+*.bak
