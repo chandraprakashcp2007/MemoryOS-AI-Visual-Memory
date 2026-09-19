@@ -44,7 +44,10 @@ import "./App.css";
 // a deployed build: that would make every visitor call their own device.
 const configuredApi = String(import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 const isLocalBrowser = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const API = configuredApi || (isLocalBrowser ? "/memoryos-api" : "");
+const DEMO_API_FALLBACK = "https://accountability-aluminium-philosophy-soccer.trycloudflare.com"; // MEMORYOS_DEMO_API_FALLBACK_V5
+// Hackathon/demo mode: deployed UI always uses the current secure tunnel.
+// Local development still keeps its normal Vite proxy behavior.
+const API = isLocalBrowser ? (configuredApi || "/memoryos-api") : DEMO_API_FALLBACK;
 const SESSION_TOKEN_KEY = "memoryos-session-token";
 const SCREENSHOT_ACCESS_KEY = "memoryos-gallery-access-v3"; // MEMORYOS_GALLERY_PREVIEW_V3
 const SCREENSHOT_DIRECTORY_DB = "memoryos-screenshot-directory";
