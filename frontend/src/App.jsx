@@ -397,7 +397,7 @@ function App() {
       if (
         normalized === "everything" ||
         normalized === "all" ||
-        normalized === "all screenshots"
+        normalized === "all screenshots" || normalized === "all photos" || normalized === "gallery"
       ) {
         const response = await apiFetch(
           `${API}/memories?limit=100`
@@ -431,7 +431,7 @@ function App() {
         },
         body: JSON.stringify({
           query: searchText,
-          limit: 20,
+          limit: 6,
         }),
       });
 
@@ -589,8 +589,8 @@ function App() {
 
   function validImageFiles(files) {
     return Array.from(files || []).filter((file) => [
-      "image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp",
-    ].includes(file.type) && file.size <= 10 * 1024 * 1024);
+      "image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp", "image/heic", "image/heif", "image/avif",
+    ].includes(file.type) && file.size <= 32 * 1024 * 1024);
   }
 
   async function beginScreenshotAccess(files) {
@@ -599,12 +599,12 @@ function App() {
     rememberScreenshotAccess("PROCESSING");
     setUploadFiles(selected.slice(0, 50));
     openUpload();
-    setUploadStatus(`${selected.length.toLocaleString()} screenshots found. Processing...`);
+    setUploadStatus(`${selected.length.toLocaleString()} photos found. Building visual memory...`);
     await uploadScreenshots(selected, { automatic: true, total: selected.length });
   }
 
   function supportedImageHandle(handle) {
-    return /\.(png|jpe?g|webp|gif|bmp)$/i.test(handle.name || "");
+    return /\.(png|jpe?g|webp|gif|bmp|heic|heif|avif)$/i.test(handle.name || "");
   }
 
   async function discoverScreenshotHandles(directory) {
@@ -622,7 +622,7 @@ function App() {
   async function importScreenshotDirectory(directory) {
     const handles = await discoverScreenshotHandles(directory);
     if (!handles.length) {
-      setUploadStatus("No supported screenshots were found in that folder.");
+      setUploadStatus("No supported photos were found in that gallery folder.");
       openUpload();
       rememberScreenshotAccess("GRANTED");
       return;
@@ -630,7 +630,7 @@ function App() {
     rememberScreenshotAccess("PROCESSING");
     setUploadFiles([]);
     openUpload();
-    setUploadStatus(`${handles.length.toLocaleString()} screenshots found. Processing...`);
+    setUploadStatus(`${handles.length.toLocaleString()} photos discovered. Building visual memory...`);
     await uploadScreenshotHandles(handles);
   }
 
@@ -1445,7 +1445,7 @@ function ThemeSwitcher({ value, onChange }) {
 
 function MemoryAssistant(){
   const[open,setOpen]=useState(false),[mode,setMode]=useState("auto"),[input,setInput]=useState(""),[busy,setBusy]=useState(false),[contextMemory,setContextMemory]=useState(null);
-  const[messages,setMessages]=useState([{role:"assistant",content:"Ask about screenshots, bills, receipts, places, code errors, or any public question.",sources:[],receipt:null}]);
+  const[messages,setMessages]=useState([{role:"assistant",content:"Ask about any photo, screenshot, bill, receipt, place, document, code error, or public question.",sources:[],receipt:null}]);
   useEffect(()=>{const h=e=>{const m=e?.detail?.memory;if(!m)return;setContextMemory(m);setMode("memory");setOpen(true);setInput("Tell me everything useful about this memory.")};window.addEventListener("memoryos:ask-memory",h);return()=>window.removeEventListener("memoryos:ask-memory",h)},[]);
   const mediaUrl=url=>!url?"":(/^https?:\/\//i.test(url)?url:(url.startsWith("/")?`${API}${url}`:url));
   const patch=(id,fn)=>setMessages(c=>c.map(x=>x.id===id?fn(x):x));
@@ -2175,18 +2175,18 @@ function ScreenshotAccessDialog({ allow, chooseDirectory, skip }) {
         <div className="modal-icon"><ImageIcon size={20} /></div>
         <p className="section-kicker">YOUR VISUAL MEMORY</p>
         <h2 id="access-title">Your Visual Memory</h2>
-        <p>Let MemoryOS remember your screenshots.</p>
+        <p>Let MemoryOS remember your entire photo gallery.</p>
         <p className="access-privacy">
-          Choose your main Pictures or Screenshots folder once.
+          Choose your main Pictures, Photos, DCIM, or gallery folder once.
           MemoryOS recursively discovers supported images inside that folder
           and its subfolders, then remembers the approved folder for future visits.
         </p>
-        <input ref={filesRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" multiple hidden onChange={(event) => { allow(event.target.files); event.target.value = ""; }} />
+        <input ref={filesRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/heic,image/heif,image/avif" multiple hidden onChange={(event) => { allow(event.target.files); event.target.value = ""; }} />
         <div className="access-actions">
           <button type="button" className="primary-button" onClick={async () => {
             const usedDirectoryPicker = await chooseDirectory();
             if (!usedDirectoryPicker) filesRef.current?.click();
-          }}>Allow Screenshot Access</button>
+          }}>Connect Entire Gallery</button>
           <button type="button" className="text-button" onClick={skip}>Skip</button>
         </div>
         <p className="access-note">
@@ -2284,7 +2284,7 @@ function UploadModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/heic,image/heif,image/avif"
             multiple
             hidden
             onCancel={onPickerCancelled}
@@ -2475,7 +2475,7 @@ function UploadModal({
               <>
                 <Upload size={16} />
 
-                Index screenshots
+                Index Gallery
               </>
             )}
           </button>
@@ -2512,7 +2512,7 @@ function MemoryCard({
     memory?.file_name ||
     memory?.original_filename ||
     memory?.name ||
-    "Untitled screenshot";
+    "Untitled photo";
 
   const category =
     memory?.category ||
@@ -2521,12 +2521,26 @@ function MemoryCard({
 
   const vision = memory?.vision_analysis && typeof memory.vision_analysis === "object" ? memory.vision_analysis : {};
   const visualDescription = memory?.visual_description || vision.visual_description || memory?.summary || memory?.description || "";
+  const genericConcepts = new Set([
+    "image","photo","picture","screenshot","screen","text","object","thing",
+    "content","person","people","background","foreground","display","interface",
+    "ui","unknown","scene","photograph"
+  ]);
+
   const visualConcepts = [
     ...(memory?.visual_concepts || vision.visual_concepts || []),
     ...(memory?.food_concepts || vision.food_concepts || []),
     ...(memory?.objects || vision.objects || []),
     ...(memory?.general_concepts || vision.general_concepts || []),
-  ].filter(Boolean).map(String).filter((value, index, values) => values.indexOf(value) === index).slice(0, 5);
+  ]
+    .filter(Boolean)
+    .map(String)
+    .map((value) => value.trim())
+    .filter((value) => value && !genericConcepts.has(value.toLowerCase()))
+    .filter((value, index, values) =>
+      values.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index
+    )
+    .slice(0, 4);
 
   // OCR is deliberately secondary. A card's primary copy only uses the
   // stored visual description or summary, never manufactured text.
@@ -2563,7 +2577,7 @@ function MemoryCard({
             setViewerOpen(true);
           }
         }}
-        aria-label={`Open original screenshot: ${filename}`}
+        aria-label={`Open original photo: ${filename}`}
         disabled={!originalImageUrl || failed}
       >
 

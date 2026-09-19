@@ -97,7 +97,7 @@ for directory in (
 # LIMITS
 # ============================================================================
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILE_SIZE = 32 * 1024 * 1024
 
 MAX_BATCH_FILES = 50
 
@@ -109,8 +109,8 @@ THUMBNAIL_SIZE = (720, 720)
 
 # Image byte size alone does not prevent decompression bombs. These limits are
 # deliberately generous for screenshots while bounding memory use.
-MAX_IMAGE_DIMENSION = 10_000
-MAX_IMAGE_PIXELS = 40_000_000
+MAX_IMAGE_DIMENSION = 16_000
+MAX_IMAGE_PIXELS = 80_000_000
 
 
 # ============================================================================
@@ -124,6 +124,9 @@ SUPPORTED_EXTENSIONS = {
     ".webp": "image/webp",
     ".gif": "image/gif",
     ".bmp": "image/bmp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".avif": "image/avif",
 }
 
 SUPPORTED_MIME_TYPES = {
@@ -132,6 +135,9 @@ SUPPORTED_MIME_TYPES = {
     "image/webp",
     "image/gif",
     "image/bmp",
+    "image/heic",
+    "image/heif",
+    "image/avif",
 }
 
 

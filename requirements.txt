@@ -1,4 +1,4 @@
-﻿# ============================================================
+# ============================================================
 # MEMORYOS
 # Premium AI Screenshot Semantic Search Engine
 # ============================================================
@@ -109,3 +109,6 @@ pytest-asyncio>=0.25,<1.0
 torch>=2.2,<3.0
 torchvision>=0.17,<1.0
 transformers>=4.41,<6.0
+
+# Modern phone gallery formats
+pillow-heif>=0.18,<1.0

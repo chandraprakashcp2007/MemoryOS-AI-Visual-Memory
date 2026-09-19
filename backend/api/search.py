@@ -697,10 +697,10 @@ def build_result(
         ][:30],
         why_matched=reasons,
         visual_description=str(memory.get("visual_description", "") or ""),
-        visual_concepts=[str(item) for item in memory.get("visual_concepts", [])][:20],
-        food_concepts=[str(item) for item in memory.get("food_concepts", [])][:20],
-        objects=[str(item) for item in memory.get("objects", [])][:20],
-        general_concepts=[str(item) for item in memory.get("general_concepts", [])][:20],
+        visual_concepts=_clean_visual_values(memory.get("visual_concepts", []), 5),
+        food_concepts=_clean_visual_values(memory.get("food_concepts", []), 5),
+        objects=_clean_visual_values(memory.get("objects", []), 5),
+        general_concepts=_clean_visual_values(memory.get("general_concepts", []), 5),
         vision_analysis=memory.get("vision_analysis") if isinstance(memory.get("vision_analysis"), dict) else {},
     )
 
@@ -1015,6 +1015,114 @@ def _reliable_match(
     )
 
 
+_GENERIC_VISUAL_TERMS = {
+    "image", "photo", "picture", "screenshot", "screen", "text", "object",
+    "thing", "content", "person", "people", "background", "foreground",
+    "rectangle", "display", "interface", "ui", "document", "unknown",
+    "indoor", "outdoor", "scene", "photograph",
+}
+
+
+def _clean_visual_values(values, limit: int = 5) -> list[str]:
+    cleaned = []
+    seen = set()
+
+    for value in values or []:
+        item = str(value or "").strip()
+        key = normalize(item)
+
+        if not item or not key:
+            continue
+
+        if key in _GENERIC_VISUAL_TERMS:
+            continue
+
+        if len(key) < 3:
+            continue
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        cleaned.append(item)
+
+        if len(cleaned) >= limit:
+            break
+
+    return cleaned
+
+
+def _structured_query(query: str) -> bool:
+    value = str(query or "")
+    return bool(
+        re.search(r"[0-9???$@]", value)
+        or re.search(r"\b[A-Z]{2,}\d{2,}\b", value, flags=re.I)
+        or "@" in value
+        or "." in value
+    )
+
+
+def _master_relevance_gate(
+    query: str,
+    memory: Dict[str, Any],
+    evidence: list[str],
+    *,
+    visual_score: float,
+    semantic_score: float,
+    visual_floor: float,
+    semantic_floor: float,
+) -> bool:
+    tokens = set(meaningful_tokens(query))
+    if not tokens:
+        return False
+
+    non_ocr = normalize(_non_ocr_text(memory))
+    ocr = normalize(memory.get("ocr_text", ""))
+
+    concept_matches = tokens & set(tokenize(non_ocr))
+    ocr_matches = tokens & set(tokenize(ocr))
+    normalized_query = normalize(query)
+
+    exact_concept = len(normalized_query) >= 3 and normalized_query in non_ocr
+    exact_ocr = len(normalized_query) >= 3 and normalized_query in ocr
+
+    very_strong_visual = visual_score >= max(0.265, visual_floor + 0.005)
+    very_strong_semantic = semantic_score >= max(0.61, semantic_floor + 0.015)
+    structured = _structured_query(query)
+
+    if len(tokens) == 1:
+        if exact_concept or concept_matches:
+            return True
+        if very_strong_visual:
+            return True
+        if structured and exact_ocr:
+            return True
+        return False
+
+    independent = 0
+    independent += 1 if "visual" in evidence and very_strong_visual else 0
+    independent += 1 if "concept" in evidence and bool(concept_matches or exact_concept) else 0
+    independent += 1 if "semantic" in evidence and very_strong_semantic else 0
+    independent += 1 if "ocr" in evidence and (
+        exact_ocr or len(ocr_matches) / max(1, len(tokens)) >= 0.60
+    ) else 0
+
+    if exact_concept:
+        return True
+
+    if structured and exact_ocr:
+        return True
+
+    if independent >= 2:
+        return True
+
+    if len(tokens) <= 2 and very_strong_visual:
+        return True
+
+    return False
+
+
+
 
 # ============================================================================
 # SEARCH ENGINE
@@ -1088,8 +1196,8 @@ def search_memories(
         )
 
         visual_floor = max(
-            0.235,
-            top_visual - 0.055,
+            0.255,
+            top_visual - 0.035,
         )
 
     else:
@@ -1103,8 +1211,8 @@ def search_memories(
         )
 
         semantic_floor = max(
-            0.50,
-            top_semantic - 0.10,
+            0.56,
+            top_semantic - 0.07,
         )
 
     else:
@@ -1182,6 +1290,18 @@ def search_memories(
         )
 
         if not accepted:
+
+            continue
+
+        if not _master_relevance_gate(
+            retrieval_query,
+            memory,
+            evidence,
+            visual_score=raw_visual,
+            semantic_score=raw_semantic,
+            visual_floor=visual_floor,
+            semantic_floor=semantic_floor,
+        ):
 
             continue
 
@@ -1281,6 +1401,22 @@ def search_memories(
         reverse=True,
     )
 
+    if not ranked:
+        return []
+
+    best_score = float(ranked[0][0])
+
+    quality_floor = max(
+        24.0,
+        best_score - 16.0,
+    )
+
+    premium_ranked = [
+        item
+        for item in ranked
+        if float(item[0]) >= quality_floor
+    ][:min(int(limit), 6)]
+
     return [
         build_result(
             memory_id=memory_id,
@@ -1294,9 +1430,7 @@ def search_memories(
             memory,
             reasons,
         )
-        in ranked[
-            :limit
-        ]
+        in premium_ranked
     ]
 
 
