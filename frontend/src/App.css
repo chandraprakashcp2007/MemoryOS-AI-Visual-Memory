@@ -6480,3 +6480,168 @@ premium-enter {
 .receipt-ai-row{display:grid;grid-template-columns:120px 1fr;gap:9px;padding:7px 10px;border-bottom:1px solid rgba(145,132,190,.07);font-size:9px}
 .receipt-ai-row:last-child{border-bottom:0}.receipt-ai-row span{color:var(--text-muted)}.receipt-ai-row strong{color:var(--text-primary);overflow-wrap:anywhere}
 @media(max-width:600px){.receipt-ai-row{grid-template-columns:105px 1fr}}@media(max-width:390px){.receipt-ai-row{grid-template-columns:1fr;gap:2px}}
+
+
+/* ============================================================
+   MEMORYOS MULTILINGUAL VOICE V1
+============================================================ */
+
+.search-voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 5px 4px 8px;
+  border: 1px solid rgba(143, 123, 214, .14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .025);
+  color: var(--text-muted);
+}
+
+.search-voice-controls select,
+.memory-ai-voicebar select {
+  max-width: 112px;
+  border: 0;
+  outline: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.search-voice-controls select option,
+.memory-ai-voicebar select option {
+  color: #15131e;
+  background: #fff;
+}
+
+.voice-search-button,
+.memory-ai-mic,
+.memory-ai-speak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 0;
+  cursor: pointer;
+}
+
+.voice-search-button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  color: #dcd4ff;
+  background: rgba(126, 87, 255, .11);
+}
+
+.voice-search-button:hover,
+.voice-search-button.listening {
+  background: rgba(126, 87, 255, .23);
+  box-shadow: 0 0 0 4px rgba(126, 87, 255, .07);
+}
+
+.voice-search-button.listening,
+.memory-ai-mic.listening {
+  animation: memoryos-voice-pulse 1.15s ease-in-out infinite;
+}
+
+.voice-search-button:disabled,
+.memory-ai-mic:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+.voice-search-error {
+  width: min(760px, 100%);
+  margin: 8px auto 0;
+  color: #ffb7bd;
+  font-size: 11px;
+  text-align: left;
+}
+
+.memory-ai-voicebar {
+  margin: 8px 13px 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid rgba(145, 112, 255, .13);
+  border-radius: 11px;
+  background: rgba(126, 87, 255, .045);
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.memory-ai-voicebar select {
+  max-width: 132px;
+  color: var(--text-primary);
+  font-size: 9px;
+}
+
+.memory-ai-voicebar > span {
+  margin-left: auto;
+  white-space: nowrap;
+  color: rgba(175, 165, 207, .72);
+}
+
+.memory-ai-input .memory-ai-mic {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 12px;
+  color: #d7ccff;
+  background: rgba(126, 87, 255, .10);
+  box-shadow: none;
+}
+
+.memory-ai-input .memory-ai-mic:hover,
+.memory-ai-input .memory-ai-mic.listening {
+  background: rgba(126, 87, 255, .21);
+}
+
+.memory-ai-speak {
+  width: auto !important;
+  height: auto !important;
+  margin-top: 7px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  color: #cfc3ff;
+  background: rgba(126, 87, 255, .09);
+  font-size: 8px;
+  box-shadow: none !important;
+}
+
+@keyframes memoryos-voice-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 104, 255, .24); }
+  50% { transform: scale(1.045); box-shadow: 0 0 0 6px rgba(139, 104, 255, 0); }
+}
+
+@media (max-width: 760px) {
+  .search-voice-controls {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 6px;
+  }
+
+  .search-voice-controls select {
+    max-width: none;
+    flex: 1;
+  }
+
+  .memory-ai-voicebar > span {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .memory-ai-voicebar {
+    margin-inline: 9px;
+  }
+
+  .memory-ai-voicebar select {
+    max-width: 108px;
+  }
+}

@@ -205,7 +205,7 @@ def _prepare(request: AssistantRequest):
         sources, context, raw = [], "", []
     receipt = _receipt(raw[0] if raw else None)
     history = "\n".join(f"{x.role.upper()}: {x.content}" for x in request.history[-8:])
-    prompt = """You are MemoryOS AI. Use supplied private MemoryOS context only when it supports the answer. Never invent names, totals, addresses, dates, locations, IDs, or other details. For receipts/bills identify merchant/hotel, address/location, date, tax, total, phone, email and IDs when supported; otherwise say Not detected. For public questions answer normally. Be concise and useful."""
+    prompt = """You are MemoryOS AI. Understand multilingual and transliterated user requests. Reply in the same language and script the user used unless they explicitly request another language; for romanized/Tanglish/Hinglish-style input, keep the reply natural in that same style when practical. Use supplied private MemoryOS context only when it supports the answer. Never invent names, totals, addresses, dates, locations, IDs, or other details. For receipts/bills identify merchant/hotel, address/location, date, tax, total, phone, email and IDs when supported; otherwise say Not detected. For public questions answer normally. Be concise and useful."""
     if history: prompt += "\nRECENT CONVERSATION:\n"+history
     if context: prompt += "\nPRIVATE MEMORYOS CONTEXT:\n"+context
     if receipt: prompt += "\nLOCAL RECEIPT FIELDS:\n"+json.dumps(receipt,ensure_ascii=False)
@@ -224,7 +224,7 @@ def _fallback(sources, raw):
 
 @router.get("/status")
 async def status():
-    return {"configured":bool(_key()),"model":_model(),"web_grounding":_web_enabled(),"memory_rag":True,"streaming":True,"receipt_extraction":True}
+    return {"configured":bool(_key()),"model":_model(),"web_grounding":_web_enabled(),"memory_rag":True,"streaming":True,"receipt_extraction":True,"multilingual":True,"reply_language":"auto","voice_frontend":True}
 
 @router.post("/warmup")
 async def warmup():

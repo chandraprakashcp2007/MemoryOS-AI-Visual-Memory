@@ -3,12 +3,14 @@ MemoryOS multilingual query understanding.
 
 Local:
 - English
-- Tamil
-- Tanglish
+- Tamil / Tanglish
+- major Indian scripts and common transliterations
+- common search concepts in selected world languages
 - today / yesterday
 
 Optional Gemini:
-- normalizes other languages to concise English search meaning
+- normalizes likely non-English queries to concise English search meaning
+- preserves the original language label
 - failure never blocks local search
 """
 
@@ -97,6 +99,82 @@ LOCAL_TERMS = {
     "nan": "",
     "enoda": "",
 }
+
+
+# MEMORYOS_MULTILINGUAL_QUERY_V2
+LOCAL_TERMS.update({
+    "आज": "today", "बाहर": "outside", "खाना": "food", "तस्वीर": "photo",
+    "फ़ोटो": "photo", "फोटो": "photo", "बाइक": "bike", "रसीद": "receipt",
+
+    "నిన్న": "yesterday", "ఈరోజు": "today", "బయట": "outside", "ఆహారం": "food",
+    "బైక్": "bike", "ఫోటో": "photo", "బిల్లు": "bill", "రసీదు": "receipt",
+
+    "ഇന്നലെ": "yesterday", "ഇന്ന്": "today", "പുറത്ത്": "outside", "ഭക്ഷണം": "food",
+    "ബൈക്ക്": "bike", "ഫോട്ടോ": "photo", "ബിൽ": "bill", "രസീത്": "receipt",
+
+    "ನಿನ್ನೆ": "yesterday", "ಇಂದು": "today", "ಹೊರಗೆ": "outside", "ಊಟ": "food",
+    "ಬೈಕ್": "bike", "ಫೋಟೋ": "photo", "ಬಿಲ್": "bill", "ರಸೀದಿ": "receipt",
+
+    "গতকাল": "yesterday", "আজ": "today", "বাইরে": "outside", "খাবার": "food",
+    "বাইক": "bike", "ছবি": "photo", "বিল": "bill", "রসিদ": "receipt",
+
+    "आज": "today", "बाहेर": "outside", "जेवण": "food", "बाईक": "bike", "पावती": "receipt",
+
+    "ગઈકાલે": "yesterday", "આજે": "today", "બહાર": "outside", "ખોરાક": "food",
+    "બાઈક": "bike", "ફોટો": "photo", "બિલ": "bill", "રસીદ": "receipt",
+
+    "ਅੱਜ": "today", "ਬਾਹਰ": "outside", "ਖਾਣਾ": "food", "ਬਾਈਕ": "bike",
+    "ਫੋਟੋ": "photo", "ਬਿੱਲ": "bill", "ਰਸੀਦ": "receipt",
+
+    "آج": "today", "باہر": "outside", "کھانا": "food", "بائیک": "bike",
+    "تصویر": "photo", "بل": "bill", "رسید": "receipt",
+
+    "ayer": "yesterday", "hoy": "today", "afuera": "outside", "comida": "food",
+    "bicicleta": "bike", "moto": "bike", "foto": "photo", "factura": "bill", "recibo": "receipt",
+
+    "hier": "yesterday", "aujourd'hui": "today", "dehors": "outside", "nourriture": "food",
+    "vélo": "bike", "photo": "photo", "facture": "bill", "reçu": "receipt",
+
+    "gestern": "yesterday", "heute": "today", "draußen": "outside", "essen": "food",
+    "fahrrad": "bike", "motorrad": "bike", "rechnung": "bill", "beleg": "receipt",
+
+    "ontem": "yesterday", "hoje": "today", "fora": "outside", "fatura": "bill",
+
+    "أمس": "yesterday", "اليوم": "today", "خارج": "outside", "طعام": "food",
+    "دراجة": "bike", "صورة": "photo", "فاتورة": "bill", "إيصال": "receipt",
+
+    "昨日": "yesterday", "今日": "today", "外": "outside", "食べ物": "food",
+    "バイク": "bike", "自転車": "bike", "写真": "photo", "請求書": "bill", "レシート": "receipt",
+
+    "어제": "yesterday", "오늘": "today", "밖": "outside", "음식": "food",
+    "오토바이": "bike", "자전거": "bike", "사진": "photo", "청구서": "bill", "영수증": "receipt",
+
+    "昨天": "yesterday", "今天": "today", "外面": "outside", "食物": "food",
+    "摩托车": "bike", "自行车": "bike", "照片": "photo", "发票": "bill", "收据": "receipt",
+
+    "aaj": "today", "bahar": "outside", "tasveer": "photo", "rasid": "receipt",
+    "ninna": "yesterday", "ivala": "today", "bayata": "outside", "tindi": "food",
+    "billu": "bill", "raseedu": "receipt", "innale": "yesterday", "innu": "today",
+    "purathu": "outside", "bhakshanam": "food", "ninne": "yesterday", "horage": "outside",
+    "oota": "food", "rasidi": "receipt", "gotokal": "yesterday", "ajke": "today",
+    "baire": "outside", "baher": "outside", "jevan": "food", "pavati": "receipt",
+    "gaikale": "yesterday", "aaje": "today",
+})
+
+ROMANIZED_AI_HINTS = {
+    "mujhe", "dikhao", "wala", "wali", "mere", "mera",
+    "naaku", "chupinchu", "unnadi", "photo kavali",
+    "enikku", "kanikku", "ente", "venam",
+    "nanage", "torisu", "nanna", "beku",
+    "amar", "dekhao", "lagbe",
+}
+
+def should_use_ai_normalizer(original: str, locally_translated: str) -> bool:
+    if any(ord(character) > 127 for character in locally_translated):
+        return True
+
+    lowered = original.casefold()
+    return any(hint in lowered for hint in ROMANIZED_AI_HINTS)
 
 
 def clean(value: str) -> str:
@@ -310,13 +388,9 @@ def understand_query(
 
     used_ai = False
 
-    # Any remaining non-ASCII language can optionally be normalized
-    # by Gemini. Search still works if Gemini is unavailable.
-    if any(
-        ord(character) > 127
-        for character
-        in search_text
-    ):
+    # Normalize likely non-English / transliterated queries with Gemini
+    # when configured. Deterministic local mappings remain the offline fallback.
+    if should_use_ai_normalizer(original, search_text):
 
         ai = gemini_normalize(
             original

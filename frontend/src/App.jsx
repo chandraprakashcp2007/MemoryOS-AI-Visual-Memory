@@ -17,6 +17,10 @@ import {
   MessageCircle,
   Send,
   Globe2,
+  Mic,
+  MicOff,
+  Volume2,
+  Languages,
   Search,
   Sun,
   Moon,
@@ -48,6 +52,55 @@ const SCREENSHOT_DIRECTORY_STORE = "handles";
 const SCREENSHOT_DIRECTORY_KEY = "selected-directory";
 const DIRECTORY_BATCH_SIZE = 24;
 const CLOUD_AUTH_ENABLED = String(import.meta.env.VITE_CLOUD_AUTH || "").toLowerCase() === "true";
+
+// MEMORYOS_MULTILINGUAL_VOICE_V1
+const VOICE_LANGUAGES = [
+  ["en-IN", "English"],
+  ["ta-IN", "தமிழ்"],
+  ["hi-IN", "हिन्दी"],
+  ["te-IN", "తెలుగు"],
+  ["ml-IN", "മലയാളം"],
+  ["kn-IN", "ಕನ್ನಡ"],
+  ["bn-IN", "বাংলা"],
+  ["mr-IN", "मराठी"],
+  ["gu-IN", "ગુજરાતી"],
+  ["pa-IN", "ਪੰਜਾਬੀ"],
+  ["ur-IN", "اردو"],
+  ["es-ES", "Español"],
+  ["fr-FR", "Français"],
+  ["de-DE", "Deutsch"],
+  ["pt-BR", "Português"],
+  ["ar-SA", "العربية"],
+  ["ja-JP", "日本語"],
+  ["ko-KR", "한국어"],
+  ["zh-CN", "中文"],
+];
+
+function speechRecognitionApi() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function speakText(text, language = "en-IN") {
+  if (!("speechSynthesis" in window) || !text) return false;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(
+    String(text)
+      .replace(/[*#_`>]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+  utterance.lang = language;
+  const languagePrefix = language.split("-")[0].toLowerCase();
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  const preferred =
+    voices.find((voice) => String(voice.lang || "").toLowerCase() === language.toLowerCase()) ||
+    voices.find((voice) => String(voice.lang || "").toLowerCase().startsWith(languagePrefix));
+  if (preferred) utterance.voice = preferred;
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
+  return true;
+}
 
 function screenshotDirectoryStore(mode, value) {
   return new Promise((resolve, reject) => {
@@ -1155,7 +1208,7 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
             </button>
           )}
           <button type="button" className="nav-item" onClick={resetScreenshotAccess}>
-            <span className="nav-label">Manage screenshot access</span>
+            <span className="nav-label">Manage gallery access</span>
           </button>
 
           <div className="engine-card">
@@ -1340,8 +1393,8 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
           </div>
 
           <span>
-            Screenshots → OCR → AI →
-            Embeddings → Semantic Search
+            Gallery → Vision + OCR → AI →
+            Embeddings → Multilingual Search
           </span>
 
           <span className="footer-live">
@@ -1443,17 +1496,311 @@ function ThemeSwitcher({ value, onChange }) {
    MEMORYOS AI COPILOT
 ============================================================ */
 
-function MemoryAssistant(){
-  const[open,setOpen]=useState(false),[mode,setMode]=useState("auto"),[input,setInput]=useState(""),[busy,setBusy]=useState(false),[contextMemory,setContextMemory]=useState(null);
-  const[messages,setMessages]=useState([{role:"assistant",content:"Ask about any photo, screenshot, bill, receipt, place, document, code error, or public question.",sources:[],receipt:null}]);
-  useEffect(()=>{const h=e=>{const m=e?.detail?.memory;if(!m)return;setContextMemory(m);setMode("memory");setOpen(true);setInput("Tell me everything useful about this memory.")};window.addEventListener("memoryos:ask-memory",h);return()=>window.removeEventListener("memoryos:ask-memory",h)},[]);
-  const mediaUrl=url=>!url?"":(/^https?:\/\//i.test(url)?url:(url.startsWith("/")?`${API}${url}`:url));
-  const patch=(id,fn)=>setMessages(c=>c.map(x=>x.id===id?fn(x):x));
-  async function sendMessage(event,override=null){event?.preventDefault?.();const message=String(override??input).trim();if(!message||busy)return;const history=messages.filter(x=>x.role==="user"||x.role==="assistant").slice(-8).map(x=>({role:x.role,content:x.content}));const id=`ai-${Date.now()}`;setMessages(c=>[...c,{role:"user",content:message},{id,role:"assistant",content:"",sources:[],receipt:null,streaming:true}]);setInput("");setBusy(true);try{const response=await apiFetch(`${API}/assistant/stream`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,history,memory_id:contextMemory?.memory_id||contextMemory?.id||null,mode})});if(!response.ok||!response.body)throw new Error(`AI request failed (${response.status})`);const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";while(true){const{value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let b;while((b=buffer.indexOf("\n\n"))>=0){const packet=buffer.slice(0,b);buffer=buffer.slice(b+2);let name="message",data="";for(const line of packet.split("\n")){if(line.startsWith("event:"))name=line.slice(6).trim();if(line.startsWith("data:"))data+=line.slice(5).trim()}if(!data)continue;let p={};try{p=JSON.parse(data)}catch{p={text:data}};if(name==="meta")patch(id,x=>({...x,mode:p.mode||mode,sources:Array.isArray(p.sources)?p.sources:[],receipt:p.receipt||null}));if(name==="token")patch(id,x=>({...x,content:`${x.content||""}${p.text||""}`}));if(name==="error")patch(id,x=>({...x,content:p.message||"AI temporarily unavailable.",error:true,streaming:false}));if(name==="done")patch(id,x=>({...x,streaming:false}))}}}catch(error){patch(id,x=>({...x,content:/failed to fetch/i.test(String(error?.message||""))?"Memory engine is reconnecting. Your indexed memories are safe.":(error?.message||"MemoryOS AI is temporarily unavailable."),error:true,streaming:false}))}finally{setBusy(false)}}
-  const rows=r=>[["Merchant / Hotel",r?.merchant],["Address / Location",r?.address],["Date",r?.date],["Total",r?.total],["Phone",r?.phone],["Email",r?.email],["GSTIN",r?.gstin]];
-  return <div className={`memory-ai ${open?"memory-ai-open":""}`}>{open&&<section className="memory-ai-panel"><header className="memory-ai-header"><div className="memory-ai-avatar"><Brain size={18}/></div><div><strong>MemoryOS AI</strong><span>Memory + public knowledge</span></div><button type="button" className="memory-ai-close" onClick={()=>setOpen(false)}><X size={17}/></button></header><div className="memory-ai-modes">{[["auto","Auto"],["memory","Memory"],["web","Web"]].map(([k,l])=><button key={k} type="button" className={mode===k?"active":""} onClick={()=>{setMode(k);if(k==="web")setContextMemory(null)}}>{k==="web"&&<Globe2 size={12}/>} {l}</button>)}</div><div className="memory-ai-quick-prompts">{["Find my bills","Show receipt details","Explain this image","Find code errors"].map(p=><button key={p} type="button" disabled={busy} onClick={()=>sendMessage(null,p)}><Sparkles size={11}/>{p}</button>)}</div>{contextMemory&&<div className="memory-ai-context"><span>Selected: {contextMemory.filename||contextMemory.original_filename||"memory"}</span><button type="button" onClick={()=>setContextMemory(null)}><X size={13}/></button></div>}<div className="memory-ai-messages">{messages.map((m,i)=><div key={m.id||i} className={`memory-ai-message ${m.role} ${m.error?"error":""}`}><div className="memory-ai-message-body">{m.content}{m.streaming&&!m.content&&<span>Thinking...</span>}</div>{m.receipt&&<div className="receipt-ai-card"><div className="receipt-ai-title"><FileText size={14}/> Bill / receipt details</div>{rows(m.receipt).map(([l,v])=><div className="receipt-ai-row" key={l}><span>{l}</span><strong>{v||"Not detected"}</strong></div>)}</div>}{Array.isArray(m.sources)&&m.sources.length>0&&<div className="memory-ai-sources">{m.sources.map(s=><button type="button" className="memory-ai-source" key={s.memory_id} onClick={()=>{const o=mediaUrl(s.image_url);if(o)window.open(o,"_blank","noopener,noreferrer")}}>{s.thumbnail_url&&<AuthenticatedImage src={mediaUrl(s.thumbnail_url)} alt={s.filename||"Memory source"}/>}<div><strong>{s.filename||"Memory"}</strong><span>{s.category||"Indexed image"}</span></div></button>)}</div>}</div>)}</div><form className="memory-ai-input" onSubmit={sendMessage}><textarea rows={1} value={input} onChange={e=>setInput(e.target.value)} placeholder={mode==="memory"?"Ask about your memories...":mode==="web"?"Ask a public question...":"Ask anything..."}/><button type="submit" disabled={busy||!input.trim()}>{busy?<Loader2 size={16} className="spin"/>:<Send size={16}/>}</button></form><div className="memory-ai-privacy">Memory answers are grounded in retrieved MemoryOS context. Web mode does not attach private memory context.</div></section>}<button type="button" className="memory-ai-fab" onClick={()=>setOpen(c=>!c)}>{open?<X size={22}/>:<MessageCircle size={23}/>} {!open&&<span>AI</span>}</button></div>;
-}
+function MemoryAssistant() {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState("auto");
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [contextMemory, setContextMemory] = useState(null);
+  const [voiceMode, setVoiceMode] = useState(() => localStorage.getItem("memoryos-voice-mode") === "true");
+  const [voiceLanguage, setVoiceLanguage] = useState(() => localStorage.getItem("memoryos-voice-language") || "en-IN");
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const speechSupported = Boolean(speechRecognitionApi());
 
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content: "Ask about any photo, screenshot, bill, receipt, place, document, code error, or public question — in your language.",
+      sources: [],
+      receipt: null,
+    },
+  ]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      const memory = event?.detail?.memory;
+      if (!memory) return;
+      setContextMemory(memory);
+      setMode("memory");
+      setOpen(true);
+      setInput("Tell me everything useful about this memory.");
+    };
+    window.addEventListener("memoryos:ask-memory", handler);
+    return () => window.removeEventListener("memoryos:ask-memory", handler);
+  }, []);
+
+  useEffect(() => () => {
+    recognitionRef.current?.abort?.();
+    window.speechSynthesis?.cancel?.();
+  }, []);
+
+  const mediaUrl = (url) => !url ? "" : (/^https?:\/\//i.test(url) ? url : (url.startsWith("/") ? `${API}${url}` : url));
+  const patch = (id, fn) => setMessages((current) => current.map((item) => item.id === id ? fn(item) : item));
+
+  function changeVoiceLanguage(value) {
+    localStorage.setItem("memoryos-voice-language", value);
+    setVoiceLanguage(value);
+  }
+
+  function toggleVoiceMode() {
+    setVoiceMode((current) => {
+      const next = !current;
+      localStorage.setItem("memoryos-voice-mode", String(next));
+      if (!next) window.speechSynthesis?.cancel?.();
+      return next;
+    });
+  }
+
+  function startListening() {
+    const Recognition = speechRecognitionApi();
+    if (!Recognition || busy) return;
+    recognitionRef.current?.abort?.();
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    recognition.lang = voiceLanguage;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setListening(true);
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    recognition.onresult = (event) => {
+      const transcript = String(event.results?.[0]?.[0]?.transcript || "").trim();
+      if (!transcript) return;
+      setInput(transcript);
+      if (voiceMode) window.setTimeout(() => sendMessage(null, transcript), 0);
+    };
+    recognition.start();
+  }
+
+  async function sendMessage(event, override = null) {
+    event?.preventDefault?.();
+    const message = String(override ?? input).trim();
+    if (!message || busy) return;
+
+    const history = messages
+      .filter((item) => item.role === "user" || item.role === "assistant")
+      .slice(-8)
+      .map((item) => ({ role: item.role, content: item.content }));
+
+    const id = `ai-${Date.now()}`;
+    setMessages((current) => [
+      ...current,
+      { role: "user", content: message },
+      { id, role: "assistant", content: "", sources: [], receipt: null, streaming: true },
+    ]);
+    setInput("");
+    setBusy(true);
+
+    let spokenResponse = "";
+
+    try {
+      const response = await apiFetch(`${API}/assistant/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          history,
+          memory_id: contextMemory?.memory_id || contextMemory?.id || null,
+          mode,
+        }),
+      });
+
+      if (!response.ok || !response.body) throw new Error(`AI request failed (${response.status})`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        let boundary;
+
+        while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+          const packet = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          let name = "message";
+          let data = "";
+
+          for (const line of packet.split("\n")) {
+            if (line.startsWith("event:")) name = line.slice(6).trim();
+            if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+
+          if (!data) continue;
+
+          let payload = {};
+          try { payload = JSON.parse(data); }
+          catch { payload = { text: data }; }
+
+          if (name === "meta") {
+            patch(id, (item) => ({
+              ...item,
+              mode: payload.mode || mode,
+              sources: Array.isArray(payload.sources) ? payload.sources : [],
+              receipt: payload.receipt || null,
+            }));
+          }
+
+          if (name === "token") {
+            const piece = payload.text || "";
+            spokenResponse += piece;
+            patch(id, (item) => ({ ...item, content: `${item.content || ""}${piece}` }));
+          }
+
+          if (name === "error") {
+            spokenResponse = payload.message || "AI temporarily unavailable.";
+            patch(id, (item) => ({ ...item, content: spokenResponse, error: true, streaming: false }));
+          }
+
+          if (name === "done") {
+            patch(id, (item) => ({ ...item, streaming: false }));
+          }
+        }
+      }
+
+      if (voiceMode && spokenResponse.trim()) speakText(spokenResponse, voiceLanguage);
+    } catch (error) {
+      const messageText = /failed to fetch/i.test(String(error?.message || ""))
+        ? "Memory engine is reconnecting. Your indexed memories are safe."
+        : (error?.message || "MemoryOS AI is temporarily unavailable.");
+      patch(id, (item) => ({ ...item, content: messageText, error: true, streaming: false }));
+      if (voiceMode) speakText(messageText, voiceLanguage);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const rows = (receipt) => [
+    ["Merchant / Hotel", receipt?.merchant],
+    ["Address / Location", receipt?.address],
+    ["Date", receipt?.date],
+    ["Total", receipt?.total],
+    ["Phone", receipt?.phone],
+    ["Email", receipt?.email],
+    ["GSTIN", receipt?.gstin],
+  ];
+
+  return (
+    <div className={`memory-ai ${open ? "memory-ai-open" : ""}`}>
+      {open && (
+        <section className="memory-ai-panel">
+          <header className="memory-ai-header">
+            <div className="memory-ai-avatar"><Brain size={18} /></div>
+            <div><strong>MemoryOS AI</strong><span>Multilingual memory + public knowledge</span></div>
+            <button type="button" className="memory-ai-close" onClick={() => setOpen(false)}><X size={17} /></button>
+          </header>
+
+          <div className="memory-ai-modes">
+            {[["auto", "Auto"], ["memory", "Memory"], ["web", "Web"]].map(([key, label]) => (
+              <button key={key} type="button" className={mode === key ? "active" : ""} onClick={() => { setMode(key); if (key === "web") setContextMemory(null); }}>
+                {key === "web" && <Globe2 size={12} />} {label}
+              </button>
+            ))}
+            <button type="button" className={voiceMode ? "active" : ""} onClick={toggleVoiceMode} title="Voice mode sends dictated questions and speaks AI replies">
+              <Volume2 size={12} /> Voice
+            </button>
+          </div>
+
+          <div className="memory-ai-voicebar">
+            <Languages size={13} />
+            <select value={voiceLanguage} onChange={(event) => changeVoiceLanguage(event.target.value)} aria-label="Voice language">
+              {VOICE_LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+            </select>
+            <span>{voiceMode ? "Voice mode on" : "Voice input ready"}</span>
+          </div>
+
+          <div className="memory-ai-quick-prompts">
+            {["Find my bills", "Show receipt details", "Explain this image", "Find code errors"].map((prompt) => (
+              <button key={prompt} type="button" disabled={busy} onClick={() => sendMessage(null, prompt)}>
+                <Sparkles size={11} />{prompt}
+              </button>
+            ))}
+          </div>
+
+          {contextMemory && (
+            <div className="memory-ai-context">
+              <span>Selected: {contextMemory.filename || contextMemory.original_filename || "memory"}</span>
+              <button type="button" onClick={() => setContextMemory(null)}><X size={13} /></button>
+            </div>
+          )}
+
+          <div className="memory-ai-messages">
+            {messages.map((message, index) => (
+              <div key={message.id || index} className={`memory-ai-message ${message.role} ${message.error ? "error" : ""}`}>
+                <div className="memory-ai-message-body">
+                  {message.content}
+                  {message.streaming && !message.content && <span>Thinking...</span>}
+                  {message.role === "assistant" && message.content && (
+                    <button type="button" className="memory-ai-speak" onClick={() => speakText(message.content, voiceLanguage)} title="Read aloud">
+                      <Volume2 size={12} /> Listen
+                    </button>
+                  )}
+                </div>
+
+                {message.receipt && (
+                  <div className="receipt-ai-card">
+                    <div className="receipt-ai-title"><FileText size={14} /> Bill / receipt details</div>
+                    {rows(message.receipt).map(([label, value]) => (
+                      <div className="receipt-ai-row" key={label}><span>{label}</span><strong>{value || "Not detected"}</strong></div>
+                    ))}
+                  </div>
+                )}
+
+                {Array.isArray(message.sources) && message.sources.length > 0 && (
+                  <div className="memory-ai-sources">
+                    {message.sources.map((source) => (
+                      <button type="button" className="memory-ai-source" key={source.memory_id} onClick={() => {
+                        const original = mediaUrl(source.image_url);
+                        if (original) window.open(original, "_blank", "noopener,noreferrer");
+                      }}>
+                        {source.thumbnail_url && <AuthenticatedImage src={mediaUrl(source.thumbnail_url)} alt={source.filename || "Memory source"} />}
+                        <div><strong>{source.filename || "Memory"}</strong><span>{source.category || "Indexed image"}</span></div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <form className="memory-ai-input" onSubmit={sendMessage}>
+            <button
+              type="button"
+              className={`memory-ai-mic ${listening ? "listening" : ""}`}
+              onClick={startListening}
+              disabled={!speechSupported || busy}
+              title={speechSupported ? "Speak" : "Voice input is not supported in this browser"}
+            >
+              {listening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+            <textarea
+              rows={1}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={listening ? "Listening..." : mode === "memory" ? "Ask about your memories..." : mode === "web" ? "Ask a public question..." : "Ask anything in your language..."}
+            />
+            <button type="submit" disabled={busy || !input.trim()}>
+              {busy ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+            </button>
+          </form>
+
+          <div className="memory-ai-privacy">
+            Voice uses your browser's speech service. Memory mode only sends retrieved MemoryOS context to the configured AI service.
+          </div>
+        </section>
+      )}
+
+      <button type="button" className="memory-ai-fab" onClick={() => setOpen((current) => !current)}>
+        {open ? <X size={22} /> : <MessageCircle size={23} />} {!open && <span>AI</span>}
+      </button>
+    </div>
+  );
+}
 
 /* ============================================================
    SEARCH PAGE
@@ -1479,7 +1826,12 @@ function SearchPage({
   dashboardLoading,
 }) {
   const searchInputRef = useRef(null);
+  const searchRecognitionRef = useRef(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState(() => localStorage.getItem("memoryos-search-language") || "en-IN");
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+  const speechSupported = Boolean(speechRecognitionApi());
 
   useEffect(() => {
     const focusSearch = (event) => {
@@ -1491,6 +1843,46 @@ function SearchPage({
     window.addEventListener("keydown", focusSearch);
     return () => window.removeEventListener("keydown", focusSearch);
   }, []);
+
+  useEffect(() => () => searchRecognitionRef.current?.abort?.(), []);
+
+  function startVoiceSearch() {
+    const Recognition = speechRecognitionApi();
+    if (!Recognition || loading) {
+      setVoiceError("Voice search is not supported in this browser. Try Chrome or Edge.");
+      return;
+    }
+
+    setVoiceError("");
+    searchRecognitionRef.current?.abort?.();
+
+    const recognition = new Recognition();
+    searchRecognitionRef.current = recognition;
+    recognition.lang = voiceLanguage;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setVoiceListening(true);
+    recognition.onend = () => setVoiceListening(false);
+    recognition.onerror = (event) => {
+      setVoiceListening(false);
+      if (event?.error !== "aborted") setVoiceError("I couldn't hear that clearly. Tap the mic and try again.");
+    };
+    recognition.onresult = (event) => {
+      const transcript = String(event.results?.[0]?.[0]?.transcript || "").trim();
+      if (!transcript) return;
+      setQuery(transcript);
+      window.setTimeout(() => handleSearch(null, transcript), 0);
+    };
+
+    recognition.start();
+  }
+
+  function changeSearchLanguage(value) {
+    localStorage.setItem("memoryos-search-language", value);
+    setVoiceLanguage(value);
+  }
 
   return (
     <div className="page">
@@ -1516,9 +1908,8 @@ function SearchPage({
         </h1>
 
         <p>
-          Search screenshots by
-          meaning, context, and memory —
-          not filenames.
+          Search your photos and screenshots by meaning, context, time, text, or voice — not filenames.
+          Ask naturally in English, Tamil, Tanglish, Hindi, Telugu, Malayalam, Kannada and more.
         </p>
 
         <form
@@ -1543,6 +1934,23 @@ function SearchPage({
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
           />
+
+          <div className="search-voice-controls">
+            <Languages size={14} />
+            <select value={voiceLanguage} onChange={(event) => changeSearchLanguage(event.target.value)} aria-label="Voice search language">
+              {VOICE_LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+            </select>
+            <button
+              type="button"
+              className={`voice-search-button ${voiceListening ? "listening" : ""}`}
+              onClick={startVoiceSearch}
+              disabled={!speechSupported || loading}
+              aria-label="Voice search"
+              title={speechSupported ? "Search by voice" : "Voice search is not supported in this browser"}
+            >
+              {voiceListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+          </div>
 
           {!searchFocused && !query && (
             <kbd className="search-shortcut" aria-label="Press Control K or Command K to focus search">Ctrl K</kbd>
@@ -1583,6 +1991,8 @@ function SearchPage({
             )}
           </button>
         </form>
+
+        {voiceError && <div className="voice-search-error">{voiceError}</div>}
 
         {(predictiveSuggestions.length > 0 || recentSearches.length > 0) && (
           <div className="predictive-search" aria-label="Search suggestions">
@@ -1717,7 +2127,7 @@ function SearchPage({
                 <Search size={25} />
               }
               title="No matching memories"
-              description="Try describing the screenshot differently."
+              description="Try another description, language, or voice query."
             />
           ) : (
             <div className="memory-grid">
@@ -1776,7 +2186,7 @@ function SearchPage({
                 />
               }
               value={memories.length}
-              label="Screenshots"
+              label="Photos & screenshots"
             />
 
             <Stat
@@ -1833,7 +2243,7 @@ function SearchPage({
                 />
               }
               title="Your visual memory is empty"
-              description="Upload screenshots to start building your searchable memory."
+              description="Connect your gallery or upload photos to start building your searchable memory."
             />
           )}
 
@@ -1888,7 +2298,7 @@ function MemoriesPage({
           </h1>
 
           <p>
-            Every indexed screenshot in
+            Every indexed photo and screenshot in
             one place.
           </p>
         </div>
@@ -1954,7 +2364,7 @@ function MemoriesPage({
             <Layers3 size={25} />
           }
           title="No memories yet"
-          description="Upload screenshots and they'll appear here."
+          description="Upload photos and screenshots and they'll appear here."
         />
       )}
     </div>
@@ -2114,7 +2524,7 @@ function AnalyticsPage({
           </div>
         ) : (
           <div className="analytics-empty">
-            Upload screenshots to see
+            Upload photos to see
             memory analytics.
           </div>
         )}
@@ -2125,7 +2535,7 @@ function AnalyticsPage({
         <PipelineStep
           number="01"
           title="Capture"
-          description="Screenshots enter MemoryOS."
+          description="Photos and screenshots enter MemoryOS."
           icon={
             <ImageIcon size={18} />
           }
