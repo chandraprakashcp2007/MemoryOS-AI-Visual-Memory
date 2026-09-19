@@ -510,6 +510,20 @@ def _register_routers(
         logger.exception("Failed to register Gallery router")
 
     # ------------------------------------------------------------------------
+    # MEMORYOS AI ASSISTANT
+    # ------------------------------------------------------------------------
+
+    try:
+        from backend.api.assistant import router as assistant_router
+
+        application.include_router(assistant_router)
+
+        logger.info("Registered router: Assistant")
+
+    except Exception:
+        logger.exception("Failed to register Assistant router")
+
+    # ------------------------------------------------------------------------
     # OCR
     # ------------------------------------------------------------------------
 

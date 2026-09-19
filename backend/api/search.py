@@ -301,9 +301,31 @@ def _load_feedback() -> dict[str, dict[str, int]]:
         return {}
 
 
-def _feedback_adjustment(query: str, memory_id: str) -> float:
-    value = _load_feedback().get(normalize(query), {}).get(memory_id, 0)
-    return max(-12.0, min(8.0, float(value) * 4.0))
+def _feedback_adjustment(
+    query: str,
+    memory_id: str,
+) -> float:
+
+    value = (
+        _load_feedback()
+        .get(
+            normalize(query),
+            {},
+        )
+        .get(
+            memory_id,
+            0,
+        )
+    )
+
+    if value > 0:
+        return 14.0
+
+    if value < 0:
+        return -60.0
+
+    return 0.0
+
 
 
 # ============================================================================
@@ -321,7 +343,7 @@ def semantic_scores(query: str, limit: int) -> dict[str, float]:
         store = create_vector_store()
         return {
             result.memory_id: max(0.0, min(1.0, result.score))
-            for result in store.search(query_vector, top_k=max(limit, 20), min_score=0.15)
+            for result in store.search(query_vector, top_k=max(limit, 50), min_score=0.15)
         }
     except Exception as exc:
         # Lexical OCR search remains available if the optional local model is
@@ -367,7 +389,7 @@ def visual_scores(
             query_vector,
             top_k=max(
                 int(limit),
-                30,
+                80,
             ),
         )
 
@@ -737,6 +759,263 @@ def _memory_in_date_window(
 
 
 
+
+def _non_ocr_text(
+    memory: Dict[str, Any],
+) -> str:
+
+    values = [
+        memory.get("summary", ""),
+        memory.get("category", ""),
+        memory.get("filename", ""),
+        memory.get("visual_description", ""),
+        _visual_text(memory),
+        memory.get("entities", []),
+        memory.get("keywords", []),
+    ]
+
+    parts = []
+
+    for value in values:
+
+        if isinstance(
+            value,
+            list,
+        ):
+
+            parts.extend(
+                str(item)
+                for item
+                in value
+            )
+
+        else:
+
+            parts.append(
+                str(
+                    value
+                    or ""
+                )
+            )
+
+    return " ".join(
+        parts
+    )
+
+
+def _reliable_match(
+    query: str,
+    memory: Dict[str, Any],
+    *,
+    semantic_score: float,
+    visual_score: float,
+    visual_floor: float,
+    semantic_floor: float,
+) -> tuple[bool, list[str]]:
+
+    query_tokens = set(
+        meaningful_tokens(
+            query
+        )
+    )
+
+    if not query_tokens:
+
+        return False, []
+
+    non_ocr_text = normalize(
+        _non_ocr_text(
+            memory
+        )
+    )
+
+    ocr_text = normalize(
+        memory.get(
+            "ocr_text",
+            "",
+        )
+    )
+
+    non_ocr_tokens = set(
+        tokenize(
+            non_ocr_text
+        )
+    )
+
+    ocr_tokens = set(
+        tokenize(
+            ocr_text
+        )
+    )
+
+    non_ocr_matches = (
+        query_tokens
+        & non_ocr_tokens
+    )
+
+    ocr_matches = (
+        query_tokens
+        & ocr_tokens
+    )
+
+    query_normalized = normalize(
+        query
+    )
+
+    exact_non_ocr = (
+        len(
+            query_normalized
+        ) >= 3
+        and query_normalized
+        in non_ocr_text
+    )
+
+    exact_ocr = (
+        len(
+            query_normalized
+        ) >= 3
+        and query_normalized
+        in ocr_text
+    )
+
+    visual_ok = (
+        visual_score
+        >= visual_floor
+    )
+
+    semantic_ok = (
+        semantic_score
+        >= semantic_floor
+    )
+
+    evidence = []
+
+    # ----------------------------------------------------------
+    # 1. Visual evidence
+    # ----------------------------------------------------------
+
+    if visual_ok:
+
+        evidence.append(
+            "visual"
+        )
+
+    # ----------------------------------------------------------
+    # 2. AI / stored visual metadata evidence
+    # ----------------------------------------------------------
+
+    if (
+        non_ocr_matches
+        or exact_non_ocr
+    ):
+
+        evidence.append(
+            "concept"
+        )
+
+    # ----------------------------------------------------------
+    # 3. Semantic evidence
+    #
+    # Semantic alone is useful for descriptive multi-word
+    # queries, but a one-word query should not return dozens
+    # of unrelated memories merely because embedding similarity
+    # is weakly positive.
+    # ----------------------------------------------------------
+
+    if semantic_ok:
+
+        if (
+            len(
+                query_tokens
+            ) >= 2
+            or non_ocr_matches
+            or visual_ok
+        ):
+
+            evidence.append(
+                "semantic"
+            )
+
+    # ----------------------------------------------------------
+    # 4. OCR evidence
+    #
+    # For one generic word, OCR-only is deliberately NOT enough.
+    # That prevents a corrupted / stale OCR index from producing
+    # rows of unrelated screenshots.
+    #
+    # Multi-word phrases, amounts, long IDs, emails etc. can use
+    # OCR directly.
+    # ----------------------------------------------------------
+
+    if len(
+        query_tokens
+    ) >= 2:
+
+        ratio = (
+            len(
+                ocr_matches
+            )
+            / max(
+                1,
+                len(
+                    query_tokens
+                ),
+            )
+        )
+
+        if (
+            ratio >= 0.5
+            or exact_ocr
+        ):
+
+            evidence.append(
+                "ocr"
+            )
+
+    else:
+
+        token = next(
+            iter(
+                query_tokens
+            )
+        )
+
+        structured = (
+            bool(
+                re.search(
+                    r"[0-9?$@]",
+                    query,
+                )
+            )
+            or "." in token
+            or len(
+                token
+            ) >= 10
+        )
+
+        if (
+            structured
+            and token
+            in ocr_tokens
+        ):
+
+            evidence.append(
+                "ocr"
+            )
+
+    return (
+        bool(
+            evidence
+        ),
+        list(
+            dict.fromkeys(
+                evidence
+            )
+        ),
+    )
+
+
+
 # ============================================================================
 # SEARCH ENGINE
 # ============================================================================
@@ -753,23 +1032,95 @@ def search_memories(
         return []
 
     try:
-        from backend.services.query_understanding_service import understand_query
 
-        understanding = understand_query(query)
+        from backend.services.query_understanding_service import (
+            understand_query,
+        )
 
-        retrieval_query = understanding.search_text or query
+        understanding = (
+            understand_query(
+                query
+            )
+        )
+
+        retrieval_query = (
+            understanding.search_text
+            or query
+        )
 
     except Exception:
+
         understanding = None
         retrieval_query = query
 
-    semantic = semantic_scores(retrieval_query, limit)
+    # ----------------------------------------------------------
+    # Candidate retrieval
+    # ----------------------------------------------------------
 
-    visual = visual_scores(retrieval_query, limit)
+    semantic = semantic_scores(
+        retrieval_query,
+        max(
+            limit,
+            50,
+        ),
+    )
+
+    visual = visual_scores(
+        retrieval_query,
+        max(
+            limit,
+            80,
+        ),
+    )
+
+    # ----------------------------------------------------------
+    # Query-relative thresholds
+    #
+    # CLIP cosine is NOT probability.
+    # We use both an absolute floor and closeness to the best
+    # candidate for this specific query.
+    # ----------------------------------------------------------
+
+    if visual:
+
+        top_visual = max(
+            visual.values()
+        )
+
+        visual_floor = max(
+            0.235,
+            top_visual - 0.055,
+        )
+
+    else:
+
+        visual_floor = 999.0
+
+    if semantic:
+
+        top_semantic = max(
+            semantic.values()
+        )
+
+        semantic_floor = max(
+            0.50,
+            top_semantic - 0.10,
+        )
+
+    else:
+
+        semantic_floor = 999.0
 
     ranked = []
 
-    for memory_id, memory in memories.items():
+    for (
+        memory_id,
+        memory,
+    ) in memories.items():
+
+        # ------------------------------------------------------
+        # Time filtering
+        # ------------------------------------------------------
 
         if (
             understanding is not None
@@ -779,31 +1130,142 @@ def search_memories(
                 understanding.date_to,
             )
         ):
+
             continue
 
-        score, reasons = score_memory(
-            retrieval_query,
-            memory,
-            semantic.get(memory_id, 0.0),
-            visual.get(memory_id, 0.0),
+        raw_visual = float(
+            visual.get(
+                memory_id,
+                0.0,
+            )
         )
+
+        raw_semantic = float(
+            semantic.get(
+                memory_id,
+                0.0,
+            )
+        )
+
+        # ------------------------------------------------------
+        # User feedback = hard learning signal
+        # ------------------------------------------------------
+
+        feedback = _feedback_adjustment(
+            retrieval_query,
+            memory_id,
+        )
+
+        if feedback <= -40:
+
+            # Exact query + Not relevant:
+            # do not keep showing the same wrong result.
+            continue
+
+        # ------------------------------------------------------
+        # Universal evidence gate
+        # ------------------------------------------------------
+
+        accepted, evidence = (
+            _reliable_match(
+                retrieval_query,
+                memory,
+                semantic_score=
+                    raw_semantic,
+                visual_score=
+                    raw_visual,
+                visual_floor=
+                    visual_floor,
+                semantic_floor=
+                    semantic_floor,
+            )
+        )
+
+        if not accepted:
+
+            continue
+
+        # Weak candidate similarities do not enter score_memory.
+        strong_visual = (
+            raw_visual
+            if raw_visual
+            >= visual_floor
+            else 0.0
+        )
+
+        strong_semantic = (
+            raw_semantic
+            if raw_semantic
+            >= semantic_floor
+            else 0.0
+        )
+
+        score, reasons = (
+            score_memory(
+                retrieval_query,
+                memory,
+                strong_semantic,
+                strong_visual,
+            )
+        )
+
+        # ------------------------------------------------------
+        # Evidence quality bonuses
+        # ------------------------------------------------------
+
+        if "visual" in evidence:
+
+            score += 12.0
+
+        if "concept" in evidence:
+
+            score += 14.0
+
+        if "semantic" in evidence:
+
+            score += 8.0
+
+        if "ocr" in evidence:
+
+            score += 12.0
+
+        if feedback > 0:
+
+            score += feedback
+
+        # ------------------------------------------------------
+        # Date evidence
+        # ------------------------------------------------------
 
         if (
             understanding is not None
             and understanding.date_from
             and understanding.date_to
         ):
-            score = min(
-                100.0,
-                score + 25.0,
-            )
+
+            score += 20.0
 
             reasons.append(
                 "Matched by capture date"
             )
 
+        score = max(
+            0.0,
+            min(
+                100.0,
+                score,
+            ),
+        )
+
         if score <= 0:
+
             continue
+
+        reasons = list(
+            dict.fromkeys(
+                reasons
+            )
+        )
 
         ranked.append(
             (
@@ -819,25 +1281,23 @@ def search_memories(
         reverse=True,
     )
 
-    results = []
-
-    for (
-        score,
-        memory_id,
-        memory,
-        reasons,
-    ) in ranked[:limit]:
-
-        results.append(
-            build_result(
-                memory_id=memory_id,
-                memory=memory,
-                score=score,
-                reasons=reasons,
-            )
+    return [
+        build_result(
+            memory_id=memory_id,
+            memory=memory,
+            score=score,
+            reasons=reasons,
         )
-
-    return results
+        for (
+            score,
+            memory_id,
+            memory,
+            reasons,
+        )
+        in ranked[
+            :limit
+        ]
+    ]
 
 
 def related_memories(memory_id: str, limit: int = 6) -> List[SearchResult]:

@@ -14,6 +14,9 @@ import {
   Layers3,
   Loader2,
   Menu,
+  MessageCircle,
+  Send,
+  Globe2,
   Search,
   Sun,
   Moon,
@@ -37,7 +40,7 @@ import "./App.css";
 // a deployed build: that would make every visitor call their own device.
 const configuredApi = String(import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 const isLocalBrowser = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const API = configuredApi || (isLocalBrowser ? "http://127.0.0.1:8000" : "");
+const API = configuredApi || (isLocalBrowser ? "/memoryos-api" : "");
 const SESSION_TOKEN_KEY = "memoryos-session-token";
 const SCREENSHOT_ACCESS_KEY = "memoryos-screenshot-access-ui";
 const SCREENSHOT_DIRECTORY_DB = "memoryos-screenshot-directory";
@@ -146,6 +149,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [apiHealth, setApiHealth] = useState({ state: "checking", detail: "Checking memory index" });
+  const [galleryProgress, setGalleryProgress] = useState(null);
 
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
@@ -221,6 +225,40 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!API) return undefined;
+
+    let alive = true;
+
+    async function pollGalleryProgress() {
+      try {
+        const response = await apiFetch(`${API}/gallery/progress`);
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (alive) {
+          setGalleryProgress(data);
+        }
+      } catch {
+        // Backend health handling is managed separately.
+      }
+    }
+
+    pollGalleryProgress();
+
+    const timer = window.setInterval(
+      pollGalleryProgress,
+      1500
+    );
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!session || session !== "restoring" || !API) return;
     apiFetch(`${API}/auth/session`).then((response) => response.ok ? response.json() : null)
       .then((data) => setSession(data?.user || null))
@@ -254,7 +292,7 @@ function App() {
       console.error("API readiness check failed:", healthError);
       setApiHealth({ state: "unavailable", detail: "Memory index unavailable" });
       setDashboardLoading(false);
-      setError("MemoryOS API is unavailable. Check the configured HTTPS backend and its CORS settings.");
+      setError("Memory engine is reconnecting. Your indexed memories are safe.");
     }
   }
 
@@ -673,7 +711,7 @@ function App() {
         processed += files.length;
 
         setUploadStatus(
-          `? Visual search ready: ${(visualReady + duplicates).toLocaleString()} / ${handles.length.toLocaleString()} ? ${payload?.device || "AI"}`
+          `Visual search ready: ${(visualReady + duplicates).toLocaleString()} / ${handles.length.toLocaleString()} | ${payload?.device || "AI"}`
         );
 
         await loadDashboard();
@@ -686,8 +724,8 @@ function App() {
       ).catch(() => {});
 
       setUploadStatus(
-        `? Visual search ready for ${(visualReady + duplicates).toLocaleString()} memories
-OCR & AI text enrichment continues in the background${failed ? ` ? ${failed} skipped` : ""}`
+        `Visual search ready for ${(visualReady + duplicates).toLocaleString()} memories
+OCR & AI text enrichment continues in the background${failed ? ` | ${failed} skipped` : ""}`
       );
 
       rememberScreenshotAccess("READY");
@@ -701,7 +739,7 @@ OCR & AI text enrichment continues in the background${failed ? ` ? ${failed} ski
       );
 
       setUploadStatus(
-        "Gallery indexing paused. Already indexed memories are safe ? choose the folder again to continue."
+        "Gallery indexing paused. Already indexed memories are safe - choose the folder again to continue."
       );
 
       rememberScreenshotAccess(
@@ -904,7 +942,15 @@ OCR & AI text enrichment continues in the background${failed ? ` ? ${failed} ski
       ? memoryTotal
       : Number(stats?.memories?.total_memories ?? stats?.total_memories ?? stats?.total ?? 0) || memories.length;
 
-  const engineStatusText = apiHealth.detail;
+  const engineStatusText =
+    galleryProgress?.active &&
+    Number(galleryProgress?.discovered || 0) > 0
+      ? `Indexing ${Number(
+          galleryProgress?.visual_ready || 0
+        ).toLocaleString()} / ${Number(
+          galleryProgress?.discovered || 0
+        ).toLocaleString()}`
+      : apiHealth.detail;
   const engineStatusTitle = apiHealth.state === "connected"
     ? "Status verified by the backend readiness endpoint."
     : "Status is based on the backend readiness endpoint; no connection is assumed from page load.";
@@ -1334,6 +1380,8 @@ OCR & AI text enrichment continues in the background${failed ? ` ? ${failed} ski
           skip={() => rememberScreenshotAccess("DENIED")}
         />
       )}
+
+      <MemoryAssistant />
     </div>
   );
 }
@@ -1388,6 +1436,22 @@ function ThemeSwitcher({ value, onChange }) {
       ))}
     </div>
   );
+}
+
+
+/* ============================================================
+   MEMORYOS AI COPILOT
+============================================================ */
+
+function MemoryAssistant(){
+  const[open,setOpen]=useState(false),[mode,setMode]=useState("auto"),[input,setInput]=useState(""),[busy,setBusy]=useState(false),[contextMemory,setContextMemory]=useState(null);
+  const[messages,setMessages]=useState([{role:"assistant",content:"Ask about screenshots, bills, receipts, places, code errors, or any public question.",sources:[],receipt:null}]);
+  useEffect(()=>{const h=e=>{const m=e?.detail?.memory;if(!m)return;setContextMemory(m);setMode("memory");setOpen(true);setInput("Tell me everything useful about this memory.")};window.addEventListener("memoryos:ask-memory",h);return()=>window.removeEventListener("memoryos:ask-memory",h)},[]);
+  const mediaUrl=url=>!url?"":(/^https?:\/\//i.test(url)?url:(url.startsWith("/")?`${API}${url}`:url));
+  const patch=(id,fn)=>setMessages(c=>c.map(x=>x.id===id?fn(x):x));
+  async function sendMessage(event,override=null){event?.preventDefault?.();const message=String(override??input).trim();if(!message||busy)return;const history=messages.filter(x=>x.role==="user"||x.role==="assistant").slice(-8).map(x=>({role:x.role,content:x.content}));const id=`ai-${Date.now()}`;setMessages(c=>[...c,{role:"user",content:message},{id,role:"assistant",content:"",sources:[],receipt:null,streaming:true}]);setInput("");setBusy(true);try{const response=await apiFetch(`${API}/assistant/stream`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,history,memory_id:contextMemory?.memory_id||contextMemory?.id||null,mode})});if(!response.ok||!response.body)throw new Error(`AI request failed (${response.status})`);const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";while(true){const{value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let b;while((b=buffer.indexOf("\n\n"))>=0){const packet=buffer.slice(0,b);buffer=buffer.slice(b+2);let name="message",data="";for(const line of packet.split("\n")){if(line.startsWith("event:"))name=line.slice(6).trim();if(line.startsWith("data:"))data+=line.slice(5).trim()}if(!data)continue;let p={};try{p=JSON.parse(data)}catch{p={text:data}};if(name==="meta")patch(id,x=>({...x,mode:p.mode||mode,sources:Array.isArray(p.sources)?p.sources:[],receipt:p.receipt||null}));if(name==="token")patch(id,x=>({...x,content:`${x.content||""}${p.text||""}`}));if(name==="error")patch(id,x=>({...x,content:p.message||"AI temporarily unavailable.",error:true,streaming:false}));if(name==="done")patch(id,x=>({...x,streaming:false}))}}}catch(error){patch(id,x=>({...x,content:/failed to fetch/i.test(String(error?.message||""))?"Memory engine is reconnecting. Your indexed memories are safe.":(error?.message||"MemoryOS AI is temporarily unavailable."),error:true,streaming:false}))}finally{setBusy(false)}}
+  const rows=r=>[["Merchant / Hotel",r?.merchant],["Address / Location",r?.address],["Date",r?.date],["Total",r?.total],["Phone",r?.phone],["Email",r?.email],["GSTIN",r?.gstin]];
+  return <div className={`memory-ai ${open?"memory-ai-open":""}`}>{open&&<section className="memory-ai-panel"><header className="memory-ai-header"><div className="memory-ai-avatar"><Brain size={18}/></div><div><strong>MemoryOS AI</strong><span>Memory + public knowledge</span></div><button type="button" className="memory-ai-close" onClick={()=>setOpen(false)}><X size={17}/></button></header><div className="memory-ai-modes">{[["auto","Auto"],["memory","Memory"],["web","Web"]].map(([k,l])=><button key={k} type="button" className={mode===k?"active":""} onClick={()=>{setMode(k);if(k==="web")setContextMemory(null)}}>{k==="web"&&<Globe2 size={12}/>} {l}</button>)}</div><div className="memory-ai-quick-prompts">{["Find my bills","Show receipt details","Explain this image","Find code errors"].map(p=><button key={p} type="button" disabled={busy} onClick={()=>sendMessage(null,p)}><Sparkles size={11}/>{p}</button>)}</div>{contextMemory&&<div className="memory-ai-context"><span>Selected: {contextMemory.filename||contextMemory.original_filename||"memory"}</span><button type="button" onClick={()=>setContextMemory(null)}><X size={13}/></button></div>}<div className="memory-ai-messages">{messages.map((m,i)=><div key={m.id||i} className={`memory-ai-message ${m.role} ${m.error?"error":""}`}><div className="memory-ai-message-body">{m.content}{m.streaming&&!m.content&&<span>Thinking...</span>}</div>{m.receipt&&<div className="receipt-ai-card"><div className="receipt-ai-title"><FileText size={14}/> Bill / receipt details</div>{rows(m.receipt).map(([l,v])=><div className="receipt-ai-row" key={l}><span>{l}</span><strong>{v||"Not detected"}</strong></div>)}</div>}{Array.isArray(m.sources)&&m.sources.length>0&&<div className="memory-ai-sources">{m.sources.map(s=><button type="button" className="memory-ai-source" key={s.memory_id} onClick={()=>{const o=mediaUrl(s.image_url);if(o)window.open(o,"_blank","noopener,noreferrer")}}>{s.thumbnail_url&&<AuthenticatedImage src={mediaUrl(s.thumbnail_url)} alt={s.filename||"Memory source"}/>}<div><strong>{s.filename||"Memory"}</strong><span>{s.category||"Indexed image"}</span></div></button>)}</div>}</div>)}</div><form className="memory-ai-input" onSubmit={sendMessage}><textarea rows={1} value={input} onChange={e=>setInput(e.target.value)} placeholder={mode==="memory"?"Ask about your memories...":mode==="web"?"Ask a public question...":"Ask anything..."}/><button type="submit" disabled={busy||!input.trim()}>{busy?<Loader2 size={16} className="spin"/>:<Send size={16}/>}</button></form><div className="memory-ai-privacy">Memory answers are grounded in retrieved MemoryOS context. Web mode does not attach private memory context.</div></section>}<button type="button" className="memory-ai-fab" onClick={()=>setOpen(c=>!c)}>{open?<X size={22}/>:<MessageCircle size={23}/>} {!open&&<span>AI</span>}</button></div>;
 }
 
 
@@ -1474,7 +1538,7 @@ function SearchPage({
                 event.target.value
               )
             }
-            placeholder='Try "?????? ????? ?????? photos" or "black bike"...'
+            placeholder='Try "black bike near college", "hotel bill 850", or "Python error"...'
             autoComplete="off"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
@@ -2112,7 +2176,11 @@ function ScreenshotAccessDialog({ allow, chooseDirectory, skip }) {
         <p className="section-kicker">YOUR VISUAL MEMORY</p>
         <h2 id="access-title">Your Visual Memory</h2>
         <p>Let MemoryOS remember your screenshots.</p>
-        <p className="access-privacy">Allow access to your screenshot library to automatically discover and process your screenshots.</p>
+        <p className="access-privacy">
+          Choose your main Pictures or Screenshots folder once.
+          MemoryOS recursively discovers supported images inside that folder
+          and its subfolders, then remembers the approved folder for future visits.
+        </p>
         <input ref={filesRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" multiple hidden onChange={(event) => { allow(event.target.files); event.target.value = ""; }} />
         <div className="access-actions">
           <button type="button" className="primary-button" onClick={async () => {
@@ -2121,7 +2189,11 @@ function ScreenshotAccessDialog({ allow, chooseDirectory, skip }) {
           }}>Allow Screenshot Access</button>
           <button type="button" className="text-button" onClick={skip}>Skip</button>
         </div>
-        <p className="access-note">MemoryOS only processes files you select. On devices without folder access, your browser opens its native multi-select picker.</p>
+        <p className="access-note">
+          Your browser controls filesystem permission. MemoryOS cannot silently
+          read folders you did not approve. On phones and unsupported browsers,
+          the native photo picker is used instead.
+        </p>
       </section>
     </div>
   );
@@ -2552,8 +2624,13 @@ function MemoryCard({
 
         {score !== null && (
           <div className="match">
-            {Math.round(score)}%
-            match
+            {matchKinds.includes("Visual")
+              ? "Visual match"
+              : matchKinds.includes("OCR")
+              ? "Text match"
+              : matchKinds.includes("Semantic")
+              ? "Meaning match"
+              : "Relevant"}
           </div>
         )}
 
@@ -2630,12 +2707,30 @@ function MemoryCard({
           </div>
         )}
 
+        <button
+          type="button"
+          className="ask-ai-memory"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent(
+                "memoryos:ask-memory",
+                {
+                  detail: { memory },
+                }
+              )
+            );
+          }}
+        >
+          <Sparkles size={14} />
+          Ask AI about this memory
+        </button>
+
         <div className="card-footer">
 
           <span>
             <Clock3 size={13} />
 
-            Indexed memory
+            Tap image to open original
           </span>
 
           <span className="indexed-dot">
