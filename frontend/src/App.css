@@ -6645,3 +6645,103 @@ premium-enter {
     max-width: 108px;
   }
 }
+
+
+/* ============================================================
+   MEMORYOS GALLERY CHOICE V2
+============================================================ */
+
+.gallery-choice-dialog {
+  width: min(610px, calc(100vw - 28px));
+  max-width: 610px;
+}
+
+.gallery-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.gallery-choice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-height: 104px;
+  padding: 14px;
+  border: 1px solid rgba(151, 136, 199, .16);
+  border-radius: 16px;
+  text-align: left;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .025);
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.gallery-choice:hover {
+  transform: translateY(-2px);
+  border-color: rgba(146, 111, 255, .45);
+  background: rgba(126, 87, 255, .07);
+}
+
+.gallery-choice.recommended {
+  border-color: rgba(141, 103, 255, .38);
+  background: linear-gradient(145deg, rgba(126, 87, 255, .11), rgba(255,255,255,.025));
+}
+
+.gallery-choice-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: rgba(126, 87, 255, .10);
+  color: #d8ceff;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.gallery-choice > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.gallery-choice strong {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.gallery-choice small {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.gallery-choice em {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: #d8ceff;
+  background: rgba(126, 87, 255, .16);
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 620px) {
+  .gallery-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gallery-choice {
+    min-height: 88px;
+  }
+}

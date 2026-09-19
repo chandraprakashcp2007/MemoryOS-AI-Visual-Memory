@@ -50,7 +50,9 @@ const SCREENSHOT_ACCESS_KEY = "memoryos-screenshot-access-ui";
 const SCREENSHOT_DIRECTORY_DB = "memoryos-screenshot-directory";
 const SCREENSHOT_DIRECTORY_STORE = "handles";
 const SCREENSHOT_DIRECTORY_KEY = "selected-directory";
+const GALLERY_MODE_KEY = "memoryos-gallery-mode";
 const DIRECTORY_BATCH_SIZE = 24;
+// MEMORYOS_GALLERY_CHOICE_V2
 const CLOUD_AUTH_ENABLED = String(import.meta.env.VITE_CLOUD_AUTH || "").toLowerCase() === "true";
 
 // MEMORYOS_MULTILINGUAL_VOICE_V1
@@ -324,9 +326,10 @@ function App() {
 
   async function checkApiHealth() {
     if (apiUnavailable) {
-      setApiHealth({ state: "unavailable", detail: "Memory index unavailable" });
+      setApiHealth({ state: "unavailable", detail: "Memory engine offline" });
       setDashboardLoading(false);
-      setError("MemoryOS is not connected to its production API. Configure VITE_API_BASE_URL in Vercel.");
+      // Keep the hosted interface clean. Show connection guidance only when
+      // the user actually tries an action that requires the backend.
       return;
     }
 
@@ -343,16 +346,16 @@ function App() {
       loadDashboard();
     } catch (healthError) {
       console.error("API readiness check failed:", healthError);
-      setApiHealth({ state: "unavailable", detail: "Memory index unavailable" });
+      setApiHealth({ state: "unavailable", detail: "Memory engine offline" });
       setDashboardLoading(false);
-      setError("Memory engine is reconnecting. Your indexed memories are safe.");
+      setError("The memory engine is currently offline. Your indexed memories are safe; reconnect the engine and try again.");
     }
   }
 
   async function loadDashboard({ category = memoryCategory, sort = memorySort } = {}) {
     if (apiUnavailable) {
       setDashboardLoading(false);
-      setError("MemoryOS is not connected to its production API. Configure VITE_API_BASE_URL in Vercel.");
+      setError("The MemoryOS interface is ready, but the memory engine is not connected. Start the local MemoryOS backend or connect a hosted API to load your indexed gallery.");
       return;
     }
     setDashboardLoading(true);
@@ -434,7 +437,7 @@ function App() {
 
     if (!searchText) return;
     if (apiUnavailable) {
-      setError("MemoryOS is not connected to its production API. Configure VITE_API_BASE_URL in Vercel.");
+      setError("The memory engine is not connected yet. Start the MemoryOS backend or connect a hosted API, then try your search again.");
       return;
     }
 
@@ -646,9 +649,10 @@ function App() {
     ].includes(file.type) && file.size <= 32 * 1024 * 1024);
   }
 
-  async function beginScreenshotAccess(files) {
+  async function beginScreenshotAccess(files, mode = "photos") {
     const selected = validImageFiles(files);
     if (!selected.length) return;
+    localStorage.setItem(GALLERY_MODE_KEY, mode);
     rememberScreenshotAccess("PROCESSING");
     setUploadFiles(selected.slice(0, 50));
     openUpload();
@@ -804,24 +808,43 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
     }
   }
 
-  async function chooseScreenshotDirectory() {
+  async function chooseScreenshotDirectory(mode = "folder") {
     if (typeof window.showDirectoryPicker !== "function") return false;
+
+    const labels = {
+      all: "Choose your main Pictures / Photos / DCIM folder. MemoryOS will include every supported photo inside it and all subfolders.",
+      screenshots: "Choose your Screenshots folder. MemoryOS will remember only that folder.",
+      folder: "Choose the folder you want MemoryOS to remember.",
+    };
+
+    setUploadStatus(labels[mode] || labels.folder);
+
     try {
       const directory = await window.showDirectoryPicker({ mode: "read" });
+      localStorage.setItem(GALLERY_MODE_KEY, mode);
       await saveScreenshotDirectory(directory);
+      rememberScreenshotAccess("GRANTED");
       await importScreenshotDirectory(directory);
       return true;
     } catch (error) {
       if (error?.name === "AbortError") {
-        setUploadStatus("Screenshot access was not granted. You can upload screenshots manually whenever you want.");
-        rememberScreenshotAccess("DENIED");
-      } else setUploadStatus("Screenshot folder could not be read. You can choose screenshots manually.");
+        setUploadStatus("No folder was selected. Your gallery remains private.");
+        rememberScreenshotAccess("NOT_REQUESTED");
+      } else {
+        setUploadStatus("That folder could not be read. Try another folder or select photos manually.");
+      }
       return true;
     }
   }
 
+  function openGalleryChoice() {
+    setUploadOpen(false);
+    setScreenshotAccess("NOT_REQUESTED");
+  }
+
   function resetScreenshotAccess() {
     localStorage.removeItem(SCREENSHOT_ACCESS_KEY);
+    localStorage.removeItem(GALLERY_MODE_KEY);
     removeSavedScreenshotDirectory().catch(() => {});
     setScreenshotAccess("NOT_REQUESTED");
   }
@@ -1308,7 +1331,7 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
             <button
               type="button"
               className="top-upload"
-              onClick={openUpload}
+              onClick={openGalleryChoice}
             >
               <Upload size={16} />
               Connect gallery
@@ -1427,7 +1450,7 @@ OCR & AI text enrichment continues in the background${failed ? ` | ${failed} ski
       )}
 
       {screenshotAccess === "NOT_REQUESTED" && (
-        <ScreenshotAccessDialog
+        <GalleryAccessDialog
           allow={beginScreenshotAccess}
           chooseDirectory={chooseScreenshotDirectory}
           skip={() => rememberScreenshotAccess("DENIED")}
@@ -2071,7 +2094,9 @@ function SearchPage({
         <div className="error-card">
           <div>
             <strong>
-              Something went wrong
+              {/not connected|offline|reconnecting|engine/i.test(error)
+                ? "Memory engine not connected"
+                : "Couldn’t complete that"}
             </strong>
 
             <span>
@@ -2577,33 +2602,77 @@ function AnalyticsPage({
    UPLOAD MODAL
 ============================================================ */
 
-function ScreenshotAccessDialog({ allow, chooseDirectory, skip }) {
+function GalleryAccessDialog({ allow, chooseDirectory, skip }) {
   const filesRef = useRef(null);
+
+  async function choose(mode) {
+    const usedDirectoryPicker = await chooseDirectory(mode);
+    if (!usedDirectoryPicker) filesRef.current?.click();
+  }
+
   return (
     <div className="access-backdrop" role="presentation">
-      <section className="access-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title">
+      <section className="access-dialog gallery-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title">
         <div className="modal-icon"><ImageIcon size={20} /></div>
         <p className="section-kicker">YOUR VISUAL MEMORY</p>
-        <h2 id="access-title">Your Visual Memory</h2>
-        <p>Let MemoryOS remember your entire photo gallery.</p>
-        <p className="access-privacy">
-          Choose your main Pictures, Photos, DCIM, or gallery folder once.
-          MemoryOS recursively discovers supported images inside that folder
-          and its subfolders, then remembers the approved folder for future visits.
-        </p>
-        <input ref={filesRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/heic,image/heif,image/avif" multiple hidden onChange={(event) => { allow(event.target.files); event.target.value = ""; }} />
-        <div className="access-actions">
-          <button type="button" className="primary-button" onClick={async () => {
-            const usedDirectoryPicker = await chooseDirectory();
-            if (!usedDirectoryPicker) filesRef.current?.click();
-          }}>Connect Entire Gallery</button>
-          <button type="button" className="text-button" onClick={skip}>Skip</button>
+        <h2 id="access-title">What should MemoryOS remember?</h2>
+        <p>Choose once. When your browser keeps permission, MemoryOS remembers that approved folder and reconnects automatically next time.</p>
+
+        <div className="gallery-choice-grid">
+          <button type="button" className="gallery-choice recommended" onClick={() => choose("all")}>
+            <span className="gallery-choice-icon">ALL</span>
+            <span>
+              <strong>All Photos</strong>
+              <small>Choose Pictures, Photos, DCIM, or your main gallery folder. Includes its subfolders.</small>
+            </span>
+            <em>Recommended</em>
+          </button>
+
+          <button type="button" className="gallery-choice" onClick={() => choose("screenshots")}>
+            <span className="gallery-choice-icon">SS</span>
+            <span>
+              <strong>Screenshots Only</strong>
+              <small>Choose only your Screenshots folder. Other photos stay untouched.</small>
+            </span>
+          </button>
+
+          <button type="button" className="gallery-choice" onClick={() => choose("folder")}>
+            <span className="gallery-choice-icon">DIR</span>
+            <span>
+              <strong>One Folder</strong>
+              <small>Choose any folder. MemoryOS scans supported images inside it recursively.</small>
+            </span>
+          </button>
+
+          <button type="button" className="gallery-choice" onClick={() => filesRef.current?.click()}>
+            <span className="gallery-choice-icon">+</span>
+            <span>
+              <strong>Select Photos</strong>
+              <small>Pick individual photos instead of granting folder access.</small>
+            </span>
+          </button>
         </div>
+
+        <input
+          ref={filesRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/heic,image/heif,image/avif"
+          multiple
+          hidden
+          onChange={(event) => {
+            allow(event.target.files, "photos");
+            event.target.value = "";
+          }}
+        />
+
         <p className="access-note">
-          Your browser controls filesystem permission. MemoryOS cannot silently
-          read folders you did not approve. On phones and unsupported browsers,
-          the native photo picker is used instead.
+          Browser security still requires you to choose the folder the first time.
+          MemoryOS cannot silently read folders you did not approve.
         </p>
+
+        <div className="access-actions">
+          <button type="button" className="text-button" onClick={skip}>Not now</button>
+        </div>
       </section>
     </div>
   );
