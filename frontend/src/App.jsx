@@ -44,7 +44,7 @@ import "./App.css";
 // a deployed build: that would make every visitor call their own device.
 const configuredApi = String(import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 const isLocalBrowser = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const DEMO_API_FALLBACK = "https://accountability-aluminium-philosophy-soccer.trycloudflare.com"; // MEMORYOS_DEMO_API_FALLBACK_V5
+const DEMO_API_FALLBACK = "https://sqrms-171-76-107-29.free.pinggy.net"; // MEMORYOS_DEMO_API_FALLBACK_V5
 // Hackathon/demo mode: deployed UI always uses the current secure tunnel.
 // Local development still keeps its normal Vite proxy behavior.
 const API = isLocalBrowser ? (configuredApi || "/memoryos-api") : DEMO_API_FALLBACK;
