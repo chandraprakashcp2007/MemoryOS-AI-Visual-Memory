@@ -46,7 +46,7 @@ const configuredApi = String(import.meta.env.VITE_API_BASE_URL || "").trim().rep
 const isLocalBrowser = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const API = configuredApi || (isLocalBrowser ? "/memoryos-api" : "");
 const SESSION_TOKEN_KEY = "memoryos-session-token";
-const SCREENSHOT_ACCESS_KEY = "memoryos-screenshot-access-ui";
+const SCREENSHOT_ACCESS_KEY = "memoryos-gallery-access-v3"; // MEMORYOS_GALLERY_PREVIEW_V3
 const SCREENSHOT_DIRECTORY_DB = "memoryos-screenshot-directory";
 const SCREENSHOT_DIRECTORY_STORE = "handles";
 const SCREENSHOT_DIRECTORY_KEY = "selected-directory";
@@ -206,6 +206,7 @@ function App() {
   const [apiHealth, setApiHealth] = useState({ state: "checking", detail: "Checking memory index" });
   const [galleryProgress, setGalleryProgress] = useState(null);
   const [instantGallery, setInstantGallery] = useState(null); // MEMORYOS_INSTANT_GALLERY_V1
+  const [galleryPreview, setGalleryPreview] = useState(null);
 
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
@@ -702,6 +703,79 @@ function App() {
     return /\.(png|jpe?g|webp|gif|bmp|heic|heif|avif)$/i.test(handle.name || "");
   }
 
+  function clearGalleryPreview() {
+    setGalleryPreview((current) => {
+      current?.items?.forEach((item) => {
+        if (item?.url) URL.revokeObjectURL(item.url);
+      });
+      return null;
+    });
+  }
+
+  async function buildGalleryPreview(directory, mode = "folder") {
+    setGalleryPreview((current) => {
+      current?.items?.forEach((item) => {
+        if (item?.url) URL.revokeObjectURL(item.url);
+      });
+
+      return {
+        name: directory?.name || "Selected gallery",
+        mode,
+        items: [],
+        scanning: true,
+      };
+    });
+
+    const previewFiles = [];
+
+    async function collect(handle) {
+      if (previewFiles.length >= 12) return;
+
+      for await (const entry of handle.values()) {
+        if (previewFiles.length >= 12) return;
+
+        if (entry.kind === "directory") {
+          await collect(entry);
+          continue;
+        }
+
+        if (entry.kind === "file" && supportedImageHandle(entry)) {
+          try {
+            const file = await entry.getFile();
+            if (file.size <= 32 * 1024 * 1024) {
+              previewFiles.push(file);
+            }
+          } catch {
+            // One unreadable image should never block the whole preview.
+          }
+        }
+      }
+    }
+
+    try {
+      await collect(directory);
+
+      const items = previewFiles.map((file) => ({
+        name: file.name,
+        url: URL.createObjectURL(file),
+      }));
+
+      setGalleryPreview((current) => ({
+        ...(current || {}),
+        name: directory?.name || current?.name || "Selected gallery",
+        mode,
+        items,
+        scanning: false,
+      }));
+    } catch {
+      setGalleryPreview((current) => ({
+        ...(current || {}),
+        scanning: false,
+        items: current?.items || [],
+      }));
+    }
+  }
+
   async function importScreenshotDirectory(directory) {
     // Instant-connect UX: close permission UI immediately. Directory traversal,
     // file reads, uploads, CLIP and OCR all continue after the next paint.
@@ -863,10 +937,23 @@ function App() {
     setUploadStatus(labels[mode] || labels.folder);
 
     try {
-      const directory = await window.showDirectoryPicker({ mode: "read" });
+      const directory = await window.showDirectoryPicker({
+        id: `memoryos-${mode}`,
+        mode: "read",
+        startIn: "pictures",
+      });
+
       localStorage.setItem(GALLERY_MODE_KEY, mode);
       await saveScreenshotDirectory(directory);
       rememberScreenshotAccess("READY");
+
+      setGalleryPreview({
+        name: directory?.name || "Selected gallery",
+        mode,
+        items: [],
+        scanning: true,
+      });
+      void buildGalleryPreview(directory, mode);
       void importScreenshotDirectory(directory);
       return true;
     } catch (error) {
@@ -1511,6 +1598,13 @@ function App() {
             <span>{instantGallery.detail}</span>
           </div>
         </div>
+      )}
+
+      {galleryPreview && (
+        <GalleryPreviewCard
+          preview={galleryPreview}
+          close={clearGalleryPreview}
+        />
       )}
 
       <MemoryAssistant />
@@ -2671,15 +2765,19 @@ function GalleryAccessDialog({ allow, chooseDirectory, skip }) {
       <section className="access-dialog gallery-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="access-title">
         <div className="modal-icon"><ImageIcon size={20} /></div>
         <p className="section-kicker">YOUR VISUAL MEMORY</p>
-        <h2 id="access-title">What should MemoryOS remember?</h2>
-        <p>Choose once. When your browser keeps permission, MemoryOS remembers that approved folder and reconnects automatically next time.</p>
+        <h2 id="access-title">Choose your photo source</h2>
+        <p>One quick choice, then MemoryOS works in the background. For folder options, select the folder itself — your photos appear inside MemoryOS immediately after selection.</p>
+        <div className="gallery-picker-hint">
+          <strong>Folder window shows folders only.</strong>
+          <span>That is normal browser security. Select the folder; MemoryOS will show a real photo preview right after.</span>
+        </div>
 
         <div className="gallery-choice-grid">
           <button type="button" className="gallery-choice recommended" onClick={() => choose("all")}>
             <span className="gallery-choice-icon">ALL</span>
             <span>
               <strong>All Photos</strong>
-              <small>Choose Pictures, Photos, DCIM, or your main gallery folder. Includes its subfolders.</small>
+              <small>Select your main Pictures / Photos / DCIM folder once. All supported photos in its subfolders are included.</small>
             </span>
             <em>Recommended</em>
           </button>
@@ -2688,7 +2786,7 @@ function GalleryAccessDialog({ allow, chooseDirectory, skip }) {
             <span className="gallery-choice-icon">SS</span>
             <span>
               <strong>Screenshots Only</strong>
-              <small>Choose only your Screenshots folder. Other photos stay untouched.</small>
+              <small>Select the Screenshots folder itself. MemoryOS ignores your other photo folders.</small>
             </span>
           </button>
 
@@ -2733,6 +2831,57 @@ function GalleryAccessDialog({ allow, chooseDirectory, skip }) {
     </div>
   );
 }
+
+
+function GalleryPreviewCard({ preview, close }) {
+  const modeLabel =
+    preview?.mode === "all"
+      ? "All Photos"
+      : preview?.mode === "screenshots"
+        ? "Screenshots Only"
+        : "Selected Folder";
+
+  return (
+    <section className="gallery-preview-card" aria-label="Selected gallery preview">
+      <div className="gallery-preview-head">
+        <div>
+          <span className="gallery-preview-kicker">CONNECTED · {modeLabel}</span>
+          <strong>{preview?.name || "Photo folder"}</strong>
+        </div>
+        <button type="button" className="gallery-preview-close" onClick={close} aria-label="Close photo preview">
+          <X size={15} />
+        </button>
+      </div>
+
+      {preview?.scanning && (!preview?.items || preview.items.length === 0) ? (
+        <div className="gallery-preview-loading">
+          <Loader2 size={16} className="spin" />
+          <span>Reading the first photos…</span>
+        </div>
+      ) : preview?.items?.length ? (
+        <>
+          <div className="gallery-preview-grid">
+            {preview.items.map((item, index) => (
+              <div className="gallery-preview-item" key={`${item.name}-${index}`} title={item.name}>
+                <img src={item.url} alt={item.name || "Selected gallery photo"} />
+              </div>
+            ))}
+          </div>
+          <div className="gallery-preview-foot">
+            <Check size={13} />
+            <span>Folder access confirmed. Full indexing continues in the background.</span>
+          </div>
+        </>
+      ) : (
+        <div className="gallery-preview-loading">
+          <ImageIcon size={16} />
+          <span>No supported image preview found in this folder.</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 
 function UploadModal({
   files,

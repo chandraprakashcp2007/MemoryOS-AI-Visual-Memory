@@ -6822,3 +6822,143 @@ premium-enter {
     width: auto;
   }
 }
+
+
+/* ============================================================
+   MEMORYOS GALLERY PREVIEW V3
+============================================================ */
+
+.gallery-picker-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(135, 105, 255, .18);
+  border-radius: 12px;
+  background: rgba(126, 87, 255, .055);
+}
+
+.gallery-picker-hint strong {
+  color: var(--text-primary);
+  font-size: 10px;
+}
+
+.gallery-picker-hint span {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.gallery-preview-card {
+  position: fixed;
+  right: 24px;
+  bottom: 156px;
+  z-index: 79;
+  width: min(390px, calc(100vw - 28px));
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid rgba(146, 111, 255, .24);
+  border-radius: 18px;
+  background: rgba(18, 16, 30, .95);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .34);
+  backdrop-filter: blur(18px);
+  animation: instant-gallery-in .22s ease both;
+}
+
+.gallery-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.gallery-preview-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gallery-preview-kicker {
+  color: #a995ff;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .10em;
+}
+
+.gallery-preview-head strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-preview-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,.04);
+  cursor: pointer;
+}
+
+.gallery-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 5px;
+}
+
+.gallery-preview-item {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(255,255,255,.035);
+}
+
+.gallery-preview-item img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.gallery-preview-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 10px;
+  border-radius: 12px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,.025);
+  font-size: 9px;
+}
+
+.gallery-preview-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  color: #9ee8bf;
+  font-size: 8px;
+}
+
+@media (max-width: 620px) {
+  .gallery-preview-card {
+    right: 10px;
+    left: 10px;
+    bottom: 140px;
+    width: auto;
+  }
+
+  .gallery-preview-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
