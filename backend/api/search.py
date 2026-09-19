@@ -330,6 +330,93 @@ def semantic_scores(query: str, limit: int) -> dict[str, float]:
         return {}
 
 
+
+def visual_scores(
+    query: str,
+    limit: int,
+) -> dict[str, float]:
+    """
+    Retrieve memories using the actual image pixels.
+
+    Query text is embedded into CLIP's shared image/text space and searched
+    against the separate 512-dimensional visual FAISS index.
+    """
+
+    try:
+
+        from backend.services.image_embedding_service import (
+            get_image_embedding_service,
+        )
+
+        from backend.services.visual_vector_store import (
+            get_visual_vector_store,
+        )
+
+        service = get_image_embedding_service()
+
+        store = get_visual_vector_store()
+
+        if store.count <= 0:
+            return {}
+
+        query_vector = service.embed_text(
+            query
+        )
+
+        results = store.search(
+            query_vector,
+            top_k=max(
+                int(limit),
+                30,
+            ),
+        )
+
+        scores: dict[str, float] = {}
+
+        for result in results:
+
+            memory_id = str(
+                result.get(
+                    "memory_id",
+                    "",
+                )
+            ).strip()
+
+            if not memory_id:
+                continue
+
+            raw_score = float(
+                result.get(
+                    "score",
+                    0.0,
+                )
+            )
+
+            # CLIP cosine similarity is not a calibrated probability.
+            # Preserve the useful positive similarity range and perform
+            # weighting later inside the hybrid ranker.
+            scores[memory_id] = max(
+                0.0,
+                min(
+                    1.0,
+                    raw_score,
+                ),
+            )
+
+        return scores
+
+    except Exception as exc:
+
+        logger.warning(
+            "Visual CLIP retrieval unavailable: %s",
+            exc,
+        )
+
+        # OCR/MiniLM search remains available.
+        return {}
+
+
+
 # ============================================================================
 # SCORING
 # ============================================================================
@@ -339,6 +426,7 @@ def score_memory(
     query: str,
     memory: Dict[str, Any],
     semantic_score: float = 0.0,
+    visual_score: float = 0.0,
 ) -> tuple[float, List[str]]:
 
     query_normalized = normalize(query)
@@ -352,9 +440,24 @@ def score_memory(
 
     reasons: List[str] = []
 
+    # --------------------------------------------------------------
+    # TRUE VISUAL IMAGE SIMILARITY ? CLIP
+    # --------------------------------------------------------------
+
+    if visual_score > 0:
+
+        # CLIP similarities for correct open-vocabulary matches commonly
+        # occupy a much smaller numeric range than normalized text scores.
+        # Scale them without pretending they are probabilities.
+        score += visual_score * 70
+
+        reasons.append(
+            "Matched visually using image content"
+        )
+
     if semantic_score > 0:
         score += semantic_score * 45
-        reasons.append("Matched by visual meaning")
+        reasons.append("Matched by semantic meaning")
 
     # ------------------------------------------------------------------
     # OCR
@@ -596,6 +699,8 @@ def search_memories(
         return []
 
     semantic = semantic_scores(query, limit)
+
+    visual = visual_scores(query, limit)
     ranked = []
 
     for memory_id, memory in memories.items():
@@ -604,6 +709,7 @@ def search_memories(
             query,
             memory,
             semantic.get(memory_id, 0.0),
+            visual.get(memory_id, 0.0),
         )
 
         if score <= 0:

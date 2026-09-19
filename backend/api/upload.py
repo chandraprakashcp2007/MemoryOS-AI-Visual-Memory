@@ -1588,6 +1588,63 @@ def persist_search_memory(
         logger.exception("Could not persist searchable memory: %s", memory_id)
 
 
+
+def index_visual_memory(
+    *,
+    source: Path,
+    memory_id: str,
+) -> bool:
+    """
+    Create and persist the local CLIP image embedding for one memory.
+
+    This operation is deliberately independent from OCR/Gemini.
+
+    Therefore an image can remain visually searchable even if OCR or
+    optional cloud vision fails.
+    """
+
+    try:
+
+        from backend.services.image_embedding_service import (
+            get_image_embedding_service,
+        )
+
+        from backend.services.visual_vector_store import (
+            get_visual_vector_store,
+        )
+
+        service = get_image_embedding_service()
+
+        store = get_visual_vector_store()
+
+        vector = service.embed_image(
+            source
+        )
+
+        store.add(
+            memory_id,
+            vector,
+        )
+
+        logger.info(
+            "Visual embedding indexed: %s",
+            memory_id,
+        )
+
+        return True
+
+    except Exception as exc:
+
+        logger.warning(
+            "Visual embedding failed for %s: %s",
+            memory_id,
+            exc,
+        )
+
+        return False
+
+
+
 def process_uploaded_memory(
     *,
     source: Path,
@@ -1938,15 +1995,32 @@ async def _handle_upload(
 
         status = "processed" if processed else "processing_failed"
 
-    # A response with HTTP 200 only confirms that the file was accepted.  It
-    # becomes discoverable through this compatibility index only after the
-    # canonical processing pipeline has confirmed indexing.
-    if processed:
+    # --------------------------------------------------------------
+    # LOCAL VISUAL INDEX
+    #
+    # CLIP is independent from OCR/Gemini. Even if the canonical
+    # processing pipeline partially fails, a valid image should still
+    # have a chance to remain visually searchable.
+    # --------------------------------------------------------------
+
+    visual_indexed = index_visual_memory(
+        source=original_path,
+        memory_id=memory_id,
+    )
+
+    processing["visual_indexed"] = visual_indexed
+
+    # Persist the searchable memory when either the canonical pipeline
+    # OR the independent visual pipeline succeeded.
+    if processed or visual_indexed:
+
         persist_search_memory(
             memory_id=memory_id,
             metadata=metadata,
             processing=processing,
         )
+
+    metadata["visual_indexed"] = visual_indexed
 
     metadata.update(
         {

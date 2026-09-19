@@ -1378,6 +1378,7 @@ class ProcessingService:
                 entities=entities,
                 keywords=keywords,
                 intent=intent,
+                vision_result=vision_result,
             )
 
             # ----------------------------------------------------------------
@@ -1886,6 +1887,7 @@ class ProcessingService:
         entities: Sequence[Any],
         keywords: Sequence[str],
         intent: str | None,
+        vision_result: Any | None = None,
     ) -> str:
 
         entity_text: list[str] = []
@@ -1914,11 +1916,100 @@ class ProcessingService:
                 if text:
                     entity_text.append(text)
 
+        visual_terms: list[str] = []
+
+        if vision_result is not None:
+
+            visual_keys = (
+                "visual_concepts",
+                "food_concepts",
+                "objects",
+                "scene",
+                "environment",
+                "coding_concepts",
+                "products",
+                "document_type",
+                "visual_description",
+                "caption",
+                "summary",
+            )
+
+            for key in visual_keys:
+
+                if isinstance(vision_result, Mapping):
+                    value = vision_result.get(key)
+                else:
+                    value = getattr(
+                        vision_result,
+                        key,
+                        None,
+                    )
+
+                if value is None:
+                    continue
+
+                if isinstance(value, Mapping):
+
+                    candidates = []
+
+                    for map_key, map_value in value.items():
+
+                        candidates.append(map_key)
+
+                        if isinstance(
+                            map_value,
+                            (str, int, float),
+                        ):
+                            candidates.append(map_value)
+
+                elif isinstance(
+                    value,
+                    (list, tuple, set),
+                ):
+                    candidates = list(value)
+
+                else:
+                    candidates = [value]
+
+                for candidate in candidates:
+
+                    if isinstance(candidate, Mapping):
+
+                        candidate = (
+                            candidate.get("name")
+                            or candidate.get("label")
+                            or candidate.get("text")
+                            or candidate.get("value")
+                        )
+
+                    if candidate is None:
+                        continue
+
+                    clean = _safe_string(
+                        candidate
+                    ).strip()
+
+                    if (
+                        clean
+                        and clean.lower()
+                        not in {
+                            item.lower()
+                            for item in visual_terms
+                        }
+                    ):
+                        visual_terms.append(clean)
+
         parts = [
             f"File: {source_name}",
             f"Category: {category}",
             f"Description: {description}",
         ]
+
+        if visual_terms:
+            parts.append(
+                "Visual Concepts: "
+                + ", ".join(visual_terms[:100])
+            )
 
         if ocr_text:
             parts.append(f"OCR Text: {ocr_text}")
