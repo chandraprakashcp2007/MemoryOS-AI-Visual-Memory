@@ -126,9 +126,19 @@ function screenshotDirectoryStore(mode, value) {
 const savedScreenshotDirectory = () => screenshotDirectoryStore("readonly");
 const saveScreenshotDirectory = (handle) => screenshotDirectoryStore("readwrite", handle);
 const removeSavedScreenshotDirectory = () => screenshotDirectoryStore("delete");
+const PINGGY_BROWSER_TUNNEL = /(?:pinggy\.net|pinggy-free\.link|pinggy\.link)/i.test(API);
+
 function apiFetch(input, init = {}) {
   const token = localStorage.getItem(SESSION_TOKEN_KEY);
   const headers = new Headers(init.headers || {});
+
+  // Pinggy Free serves a browser-only screening page. curl/server checks can
+  // reach the backend while browser fetch() is blocked by that page. This
+  // documented header bypasses the screening page for MemoryOS API traffic.
+  if (PINGGY_BROWSER_TUNNEL) {
+    headers.set("X-Pinggy-No-Screen", "1");
+  }
+
   if (token) headers.set("Authorization", `Bearer ${token}`);
   return fetch(input, { ...init, headers });
 }
@@ -137,12 +147,14 @@ function apiFetch(input, init = {}) {
 // explicitly and render a short-lived object URL instead of putting a session
 // credential in an image URL, query parameter, log, or referrer.
 function AuthenticatedImage({ src, onError, ...props }) {
-  const [resolvedSrc, setResolvedSrc] = useState(CLOUD_AUTH_ENABLED ? null : src);
+  const tunnelImage = Boolean(src && /(?:pinggy\.net|pinggy-free\.link|pinggy\.link)/i.test(String(src)));
+  const shouldFetchImage = CLOUD_AUTH_ENABLED || tunnelImage;
+  const [resolvedSrc, setResolvedSrc] = useState(shouldFetchImage ? null : src);
 
   useEffect(() => {
     let objectUrl = null;
     let cancelled = false;
-    if (!CLOUD_AUTH_ENABLED || !src) {
+    if (!shouldFetchImage || !src) {
       setResolvedSrc(src || null);
       return undefined;
     }
@@ -164,7 +176,7 @@ function AuthenticatedImage({ src, onError, ...props }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [src]);
+  }, [src, shouldFetchImage]);
 
   if (!resolvedSrc) return null;
   return <img {...props} src={resolvedSrc} onError={onError} />;
