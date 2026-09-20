@@ -219,6 +219,11 @@ def _parse_cors_origins() -> list[str]:
 
 CORS_ORIGINS = _parse_cors_origins()
 
+# Optional regex is useful for trusted deployment-preview origins while keeping
+# the exact production origin list. It is intentionally empty unless supplied
+# by the runtime environment.
+CORS_ORIGIN_REGEX = os.getenv("MEMORYOS_CORS_ORIGIN_REGEX", "").strip() or None
+
 # ============================================================================
 # REQUEST TIMING
 # ============================================================================
@@ -581,6 +586,7 @@ def create_app() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=CORS_ORIGINS,
+        allow_origin_regex=CORS_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
